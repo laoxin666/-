@@ -1,0 +1,46 @@
+# 推送到 GitHub 后自动构建镜像并发布到 GitHub Container Registry (ghcr.io)
+# 使用方式见 README「在 GitHub 上托管与发布镜像」
+
+name: Docker build & push to GHCR
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: GHCR 镜像名（必须全小写）
+        id: image
+        run: echo "full=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 登录 ghcr.io
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建（PR 仅校验）；push 到 main/master 则推送镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ steps.image.outputs.full }}:latest
+            ${{ steps.image.outputs.full }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

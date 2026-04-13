@@ -1,0 +1,10 @@
+# 本地试跑「云端模式」：docker compose up --build
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      IMG_TOOL_CLOUD: "1"
+      # 公网务必设置强随机令牌；本地测试可注释掉下一行
+      # IMG_TOOL_ACCESS_TOKEN: "change-me-to-long-random"

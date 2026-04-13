@@ -1,0 +1,23 @@
+# Fly.io：安装 flyctl 后在本目录执行 `fly launch` 关联应用并部署。
+# 文档：https://fly.io/docs/languages-and-frameworks/dockerfile/
+
+app = "img-tool-rename-me"
+primary_region = "sin"
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[env]
+  IMG_TOOL_CLOUD = "1"
