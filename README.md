@@ -215,6 +215,39 @@ docker run -d -p 8080:8080 \
 
 > 若你的 Git 仓库根目录**不是**本工具目录（例如 monorepo 子目录），请把 `.github/workflows/docker-ghcr.yml` 里 `build-push-action` 的 `context` 改为子目录路径（如 `context: ./image-lossless-tool`），并把 `file` 改为对应 `Dockerfile` 路径。
 
+### 2.7 推荐托管：Fly.io（HTTPS + 按量休眠，适合小工具）
+
+在 GitHub 托管代码的前提下，**运行服务**推荐用 [Fly.io](https://fly.io)：
+
+- 与当前 `Dockerfile` / `fly.toml` 直接配套；
+- 自动 **HTTPS**；
+- 机器可自动休眠，有访问再唤醒（适合低频使用）。
+
+**第一次（只需做一次）：**
+
+1. 安装 [flyctl](https://fly.io/docs/hands-on/install-flyctl/)，执行 `fly auth login`。
+2. 在本项目目录打开 `fly.toml`，若 `app = "img-lossless-tool"` 已被占用，改成全局唯一的名字。
+3. 创建应用并部署（会按 Dockerfile 构建）：
+
+```bash
+cd image-lossless-tool
+fly apps create <与 fly.toml 中 app 相同的名字>   # 若 fly launch 已创建可跳过
+fly secrets set IMG_TOOL_ACCESS_TOKEN="你的强随机令牌"
+fly deploy
+```
+
+4. 记下 `fly status` 或控制台里的 **https://xxx.fly.dev** 地址。
+
+**之后改代码自动上线：** 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 添加 **`FLY_API_TOKEN`**，值来自本机执行：
+
+```bash
+fly auth token
+```
+
+推送任意提交到 **`main`** 分支会触发 **Deploy to Fly.io** 工作流，自动 `flyctl deploy`。
+
+> 同时保留 **GHCR 镜像工作流**：需要把同一镜像拉到阿里云等机器时，仍可用 §2.6 的 `docker pull ghcr.io/...`。
+
 ## 3. 格式支持
 
 - 输入：`png/jpg/jpeg/webp/tif/tiff/bmp/gif`

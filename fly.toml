@@ -1,7 +1,7 @@
-# Fly.io：安装 flyctl 后在本目录执行 `fly launch` 关联应用并部署。
+# Fly.io 应用名全局唯一；若已被占用，请改成别的名字并执行: fly apps create <新名字>
 # 文档：https://fly.io/docs/languages-and-frameworks/dockerfile/
 
-app = "img-tool-rename-me"
+app = "img-lossless-tool"
 primary_region = "sin"
 
 [build]
@@ -21,3 +21,4 @@ primary_region = "sin"
 
 [env]
   IMG_TOOL_CLOUD = "1"
+  PORT = "8080"

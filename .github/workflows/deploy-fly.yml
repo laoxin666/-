@@ -1,0 +1,24 @@
+# 推送到 main 后自动部署到 Fly.io（推荐托管平台）
+# 使用前在仓库 Settings → Secrets → Actions 添加 FLY_API_TOKEN
+# 获取令牌：本机安装 flyctl 后执行  fly auth token
+
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Deploy
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
