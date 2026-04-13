@@ -1,6 +1,7 @@
-# 推送到 main 后自动部署到 Fly.io（推荐托管平台）
-# 使用前在仓库 Settings → Secrets → Actions 添加 FLY_API_TOKEN
-# 获取令牌：本机安装 flyctl 后执行  fly auth token
+# 最优默认：公网跑在 Fly.io；推送即部署（需同时配置变量 + Secret，见 README）
+# 仓库 Variables：ENABLE_FLY_DEPLOY = true
+# 仓库 Secrets：FLY_API_TOKEN（本机 fly auth token）
+# 手动运行本工作流时不受 ENABLE_FLY_DEPLOY 限制（仍需要 FLY_API_TOKEN）
 
 name: Deploy to Fly.io
 
@@ -11,6 +12,7 @@ on:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_FLY_DEPLOY == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

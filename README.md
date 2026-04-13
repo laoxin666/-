@@ -7,6 +7,24 @@
 - 桌面图形界面（GUI）一键执行
 - Web 页面（浏览器使用）
 
+### 最优方案（已替你选定）
+
+| 用途 | 选择 | 原因 |
+|------|------|------|
+| 代码托管与 CI | **GitHub** | 协作、历史、Actions 一体 |
+| 公网访问（算力在云端） | **Fly.io** | 与现有 `Dockerfile` / `fly.toml` 直接配套，**自动 HTTPS**，小流量可休眠省资源 |
+| 自动上线 | **push 到 `main`** → 工作流 `Deploy to Fly.io` | 改完即发布（需按下方打开开关） |
+| 镜像备份 / 国内机拉镜像 | **GHCR**（`docker-ghcr.yml`） | 同一推送顺带构建，**可选用** |
+
+**本地自己用**（不对外）：继续 `python web_app.py` 或双击 `start_web.command` 即可，不必上云。
+
+开启 **Fly 自动部署** 需要同时在 GitHub 配置：
+
+1. **Settings → Secrets and variables → Actions → Variables**：新建 `ENABLE_FLY_DEPLOY`，值填 **`true`**  
+2. **Secrets**：新建 `FLY_API_TOKEN`（本机安装 [flyctl](https://fly.io/docs/hands-on/install-flyctl/) 后执行 `fly auth token`）
+
+未配置时，推送不会跑 Fly 部署，避免 Actions 无故失败；需要时可在 Actions 里 **手动运行** `Deploy to Fly.io`。
+
 ## 1. 安装
 
 ```bash
@@ -238,13 +256,16 @@ fly deploy
 
 4. 记下 `fly status` 或控制台里的 **https://xxx.fly.dev** 地址。
 
-**之后改代码自动上线：** 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 添加 **`FLY_API_TOKEN`**，值来自本机执行：
+**之后改代码自动上线：**
+
+1. 仓库 **Variables** 添加 **`ENABLE_FLY_DEPLOY`** = **`true`**（见上文「最优方案」）。  
+2. 仓库 **Secrets** 添加 **`FLY_API_TOKEN`**，值来自本机：
 
 ```bash
 fly auth token
 ```
 
-推送任意提交到 **`main`** 分支会触发 **Deploy to Fly.io** 工作流，自动 `flyctl deploy`。
+推送 **`main`** 会触发 **Deploy to Fly.io**。未设 `ENABLE_FLY_DEPLOY` 时不会自动部署，可在 Actions 里 **手动运行**该工作流。
 
 > 同时保留 **GHCR 镜像工作流**：需要把同一镜像拉到阿里云等机器时，仍可用 §2.6 的 `docker pull ghcr.io/...`。
 
