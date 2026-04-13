@@ -7,6 +7,22 @@
 - 桌面图形界面（GUI）一键执行
 - Web 页面（浏览器使用）
 
+### 最简单：发给同事用（局域网）
+
+**推荐（对方不用装 Python）**
+
+1. **你**：双击 `scripts/打成分享压缩包.command`（首次会自动建 `.venv-pack` 并执行 PyInstaller，可能要几分钟）。  
+2. 桌面会出现 **`PixelForge-发给同事-免Python-arm64-xxxx.zip`** 或 **`…-x86_64-…`**（与**你当前 Mac 的芯片**一致）。  
+3. **对方**：解压 → 阅读 **`同事请看.txt`** → 双击 **`PixelForge Studio.app`**。无需 Python；同一 Wi‑Fi 下用浏览器打开窗口里显示的地址即可。
+
+若团队里既有 Intel 又有 M 系列，需要在**两种架构的 Mac 上各打一次包**再分别发给对应同事。
+
+**备选（zip 更小，对方需已装 Python 3）**
+
+双击 **`给同事用-双击启动.command`**（首次会装少量依赖）。下载慢时可编辑该文件启用国内 pip 镜像。
+
+（进阶：开发调试仍可用 `start_web_share.command`、universal2 `.app`、Fly.io 等，见下文。）
+
 ### 最优方案（已替你选定）
 
 | 用途 | 选择 | 原因 |
@@ -109,16 +125,22 @@ python web_app.py
 
 #### 局域网分享给同事（同一 Wi‑Fi）
 
-1. 在本机终端执行，或 macOS **双击** `start_web_share.command`。
-2. 终端会打印形如 `http://192.168.x.x:5000/` 的地址，发给同事用浏览器打开即可。
+1. 在本机终端执行，或 macOS **双击** `start_web_share.command`（会监听 `0.0.0.0`，局域网可访问）。
+2. 终端会打印本机所有常见局域网 IP 对应的地址，例如 `http://192.168.x.x:5000/`，**把完整链接发给同事**在同一 Wi‑Fi 下用浏览器打开。
 
-也可手动指定端口：
+也可手动指定端口（5000 若被占用可改成 8080）：
 
 ```bash
 export IMG_TOOL_HOST=0.0.0.0
 export IMG_TOOL_PORT=5000
 python web_app.py
 ```
+
+**同事打不开时排查：**
+
+- **防火墙**：macOS「系统设置 → 网络 → 防火墙」可先临时关闭试连，或允许 **python3** 接受传入连接。
+- **网络**：确认与同事是**同一 Wi‑Fi**；很多路由器的「访客网络」会禁止设备互访。
+- **地址**：同事必须用 **你电脑的局域网 IP**，不能用他们电脑上的 `127.0.0.1`。
 
 说明：图片在**运行服务的这台电脑**上处理；同事通过网页上传/下载。  
 「选择文件夹」「自动打开目录」等系统对话框只在**服务器本机**弹出，远程同事请用「下载 ZIP」或手动填路径（若你为他们配置了可写目录）。
@@ -135,6 +157,40 @@ Web 功能：
 - 上传缩略图预览墙
 - 上传/处理/下载进度条
 - 主题色和品牌文案可配置（环境变量）
+
+#### macOS 独立应用（PyInstaller，无需对方安装 Python）
+
+默认打 **universal2** 包：**同一份** `PixelForge Studio.app` 可在 **Intel** 与 **Apple Silicon** Mac 上运行（对方仍须为 **macOS**）。
+
+```bash
+cd image-lossless-tool
+chmod +x scripts/build_mac_app.sh
+./scripts/build_mac_app.sh
+```
+
+产出路径：`dist/PixelForge Studio.app`。
+
+**如何满足 universal2 构建条件（重要）**
+
+- PyInstaller 要求：**用来打包的 Python 解释器**以及 **Pillow 等含 `.so` 的 wheel** 都带有 **x86_64 + arm64** 两种架构（fat / universal2）。
+- **推荐**：从 [python.org macOS 下载页](https://www.python.org/downloads/macos/) 安装带 **「universal2」** 说明的官方安装包，然后：
+  ```bash
+  /usr/local/bin/python3.12 -m venv .venv   # 路径以你本机为准
+  source .venv/bin/activate
+  pip install -r requirements.txt -r requirements-build.txt
+  ./scripts/build_mac_app.sh
+  ```
+- **不要用** Xcode「仅命令行工具」自带的 Python 打 universal2，往往缺少 fat 解释器或依赖 wheel 仅为单架构，构建会在 `COLLECT` 阶段报错：`is not a fat binary`。
+- **临时只打当前电脑能用的单架构包**（例如仍在用 CLT Python）：
+  ```bash
+  PIXELFORGE_MAC_ARCH=native ./scripts/build_mac_app.sh
+  ```
+  该包**仅**在与打包机相同 CPU 架构的 Mac 上可运行。
+
+- 双击启动后会**默认监听 `0.0.0.0:5000`**（方便局域网同事访问），并尝试自动打开本机浏览器。
+- 若 **5000 端口被占用**（含 macOS「隔空播放接收器」）：可先关闭占用端口的程序，或在系统设置里关闭隔空播放接收器；仍冲突时把 `web_app.py` 里的 **`_FROZEN_DEFAULT_PORT`** 改成 `"8080"` 后重新执行构建脚本。
+- **代码签名 / 公证**：未签名的 .app 分发时，对方可能需在「隐私与安全性」里允许，或 **右键 → 打开** 首次运行。
+- `build/`、`dist/` 已写入 `.gitignore`，打包产物请勿误提交。
 
 CLI 也支持目标体积控制：
 

@@ -794,7 +794,7 @@
           <span class="badge">ZIP Export</span>
         </div>
         <ul class="feature-list">
-          <li>智能压缩策略：无损优先，避免画质回退。</li>
+          <li>按所填目标体积处理，未达标将单独标记。</li>
           <li>多格式转换：PNG / WEBP / TIFF / BMP / GIF / JPEG。</li>
           <li>批量处理结果打包下载，附带统计报告。</li>
         </ul>
@@ -895,7 +895,7 @@
             </div>
 
             <div class="field">
-              <label for="targetSizeKb">目标输出体积（KB，可选）</label>
+              <label for="targetSizeKb">目标输出体积（KB，必填）</label>
               <input
                 id="targetSizeKb"
                 name="target_size_kb"
@@ -904,23 +904,7 @@
                 pattern="[0-9]*"
                 placeholder="例如 300"
               />
-            </div>
-
-            <div class="field">
-              <label for="targetStrategy">体积策略</label>
-              <select id="targetStrategy" name="target_strategy">
-                <option value="quality">优先画质（默认）</option>
-                <option value="target">优先达标（允许更强压缩）</option>
-                <option value="strict">严格达标（未达标则失败）</option>
-              </select>
-            </div>
-
-            <div class="field" id="strictContentField">
-              <label for="strictContentMode">严格达标内容策略</label>
-              <select id="strictContentMode" name="strict_content_mode" disabled>
-                <option value="any">不计内容，保证达标</option>
-                <option value="preserve">尽量保留内容，不使用占位图</option>
-              </select>
+              <input type="hidden" id="targetStrategy" name="target_strategy" value="strict" />
             </div>
 
             <div class="field">
@@ -1039,7 +1023,7 @@
 
         <section class="strategy-preview" id="strategyPreviewPanel">
           <div class="strategy-preview-head">
-            <span class="strategy-preview-title">不同体积策略压缩后大小预览</span>
+            <span class="strategy-preview-title">严格达标模式：预计输出大小预览</span>
             <div class="results-tools">
               <button type="button" id="refreshPreviewBtn" class="small-btn">刷新预览</button>
               <span class="strategy-preview-status" id="strategyPreviewStatus">等待预览</span>
@@ -1064,7 +1048,7 @@
           <div class="history-list" id="queueList"></div>
         </section>
 
-        <p class="footnote">提示：体积策略可控制压缩力度；严格达标模式会优先满足目标体积。</p>
+        <p class="footnote">提示：当前为严格达标模式，输出须满足目标体积，否则记为未达标或失败。</p>
       </main>
     </div>
 
@@ -1091,8 +1075,6 @@
       const outputDirInput = document.getElementById("outputDir");
       const pickDirBtn = document.getElementById("pickDirBtn");
       const targetStrategySelect = document.getElementById("targetStrategy");
-      const strictContentField = document.getElementById("strictContentField");
-      const strictContentModeSelect = document.getElementById("strictContentMode");
       const namingTemplateInput = document.getElementById("namingTemplate");
       const keepStructureInput = document.getElementById("keepStructure");
       const autoOpenOutput = document.getElementById("autoOpenOutput");
@@ -1260,14 +1242,7 @@
       }
 
       function syncStrategyState() {
-        const strategy = targetStrategySelect.value;
-        if (strategy === "strict") {
-          strictContentField.style.display = "flex";
-          strictContentModeSelect.disabled = false;
-        } else {
-          strictContentField.style.display = "none";
-          strictContentModeSelect.disabled = true;
-        }
+        targetStrategySelect.value = "strict";
       }
 
       function applyPreset() {
@@ -1276,18 +1251,18 @@
         if (preset === "social") {
           modeSelect.value = "compress";
           compressToSelect.value = "jpeg";
-          targetStrategySelect.value = "target";
+          targetStrategySelect.value = "strict";
           targetSizeKbInput.value = "400";
         } else if (preset === "ecommerce") {
           modeSelect.value = "convert";
           targetSelect.value = "webp";
-          targetStrategySelect.value = "target";
+          targetStrategySelect.value = "strict";
           targetSizeKbInput.value = "800";
         } else if (preset === "archive") {
           modeSelect.value = "compress";
           compressToSelect.value = "same";
-          targetStrategySelect.value = "quality";
-          targetSizeKbInput.value = "";
+          targetStrategySelect.value = "strict";
+          targetSizeKbInput.value = "1024";
         }
         syncModeState();
         syncStrategyState();
@@ -1301,10 +1276,8 @@
       }
 
       function strategyLabel(strategy) {
-        if (strategy === "quality") return "优先画质";
-        if (strategy === "target") return "优先达标";
         if (strategy === "strict") return "严格达标";
-        return strategy || "-";
+        return strategy || "严格达标";
       }
 
       function clearStrategyPreview(message) {
@@ -1342,7 +1315,6 @@
         formData.set("target", targetSelect.value);
         formData.set("compress_to", compressToSelect.value);
         formData.set("target_size_kb", targetSizeKbInput.value.trim());
-        formData.set("strict_content_mode", strictContentModeSelect.value);
         if (previewLimit) formData.set("preview_limit", String(previewLimit));
         selectedFiles.forEach((file) => formData.append("images", file, file.name));
         strategyPreviewStatus.textContent = stageLabel;
@@ -1401,7 +1373,6 @@
           target: targetSelect.value,
           target_size_kb: targetSizeKbInput.value.trim(),
           target_strategy: targetStrategySelect.value,
-          strict_content_mode: strictContentModeSelect.value,
           output_mode: CLOUD_MODE ? "download" : outputModeSelect.value,
           output_dir: outputDirInput ? outputDirInput.value.trim() : "",
           naming_template: namingTemplateInput.value.trim(),
@@ -1416,8 +1387,7 @@
         compressToSelect.value = state.compress_to || compressToSelect.value;
         targetSelect.value = state.target || targetSelect.value;
         targetSizeKbInput.value = state.target_size_kb || "";
-        targetStrategySelect.value = state.target_strategy || targetStrategySelect.value;
-        strictContentModeSelect.value = state.strict_content_mode || strictContentModeSelect.value;
+        targetStrategySelect.value = "strict";
         outputModeSelect.value = CLOUD_MODE ? "download" : (state.output_mode || outputModeSelect.value);
         if (outputDirInput) outputDirInput.value = state.output_dir || "";
         namingTemplateInput.value = state.naming_template || "";
@@ -1608,8 +1578,8 @@
           statusText.textContent = "目标体积必须大于 0";
           return null;
         }
-        if (["target", "strict"].includes(state.target_strategy) && !state.target_size_kb) {
-          statusText.textContent = "当前体积策略需要填写目标输出体积(KB)";
+        if (!state.target_size_kb) {
+          statusText.textContent = "严格达标需要填写目标输出体积(KB)";
           return null;
         }
         return {
@@ -1793,14 +1763,9 @@
           }
         }
       });
-      targetStrategySelect.addEventListener("change", () => {
-        syncStrategyState();
-        scheduleStrategyPreview();
-      });
       targetSizeKbInput.addEventListener("input", scheduleStrategyPreview);
       targetSelect.addEventListener("change", scheduleStrategyPreview);
       compressToSelect.addEventListener("change", scheduleStrategyPreview);
-      strictContentModeSelect.addEventListener("change", scheduleStrategyPreview);
       refreshPreviewBtn.addEventListener("click", runStrategyPreviewPipeline);
       cancelRunningBtn.addEventListener("click", () => {
         if (currentTaskController && currentRunningTask && currentRunningTask.status === "running") {

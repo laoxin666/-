@@ -1,0 +1,2 @@
+# 仅用于在本机打出 macOS .app，与运行服务无关
+pyinstaller>=6.0

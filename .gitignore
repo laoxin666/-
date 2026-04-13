@@ -1,4 +1,6 @@
 .venv/
+.venv-share/
+.venv-pack/
 venv/
 __pycache__/
 *.py[cod]
@@ -8,3 +10,7 @@ __pycache__/
 .env.*
 .DS_Store
 *.log
+.web_app.pid
+build/
+dist/
+*.spec.bak

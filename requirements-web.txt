@@ -1,0 +1,3 @@
+# 仅网页版（给同事用时自动安装，比 requirements.txt 更轻、更快）
+Flask>=3.0
+Pillow>=10.0

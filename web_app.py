@@ -11,6 +11,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -25,6 +26,19 @@ from werkzeug.utils import secure_filename
 from image_tool import convert_image, normalize_target_format, save_lossless
 
 
+def _app_root() -> Path:
+    """项目根目录；PyInstaller 打包后为 _MEIPASS。"""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
+
+
+_APP_ROOT = _app_root()
+_static = _APP_ROOT / "static"
+_flask_kwargs: dict[str, str | None] = {"template_folder": str(_APP_ROOT / "templates")}
+_flask_kwargs["static_folder"] = str(_static) if _static.is_dir() else None
+
+
 def is_cloud_mode() -> bool:
     """云端/容器部署：禁用本机路径、仅上传+下载 ZIP。"""
     return os.getenv("IMG_TOOL_CLOUD", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -34,7 +48,7 @@ def access_token_configured() -> bool:
     return bool(os.getenv("IMG_TOOL_ACCESS_TOKEN", "").strip())
 
 
-app = Flask(__name__)
+app = Flask(__name__, **_flask_kwargs)
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("IMG_TOOL_MAX_UPLOAD_MB", "200")) * 1024 * 1024
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 _cloud = is_cloud_mode()
@@ -384,10 +398,7 @@ def preview_size():
     mode = request.form.get("mode", "compress")
     target = request.form.get("target", "png")
     compress_to = request.form.get("compress_to", "same").lower()
-    strict_content_mode = request.form.get("strict_content_mode", "any")
-    if strict_content_mode not in {"any", "preserve"}:
-        strict_content_mode = "any"
-    strict_allow_placeholder = strict_content_mode == "any"
+    strict_allow_placeholder = True
     try:
         target_size_kb = parse_optional_positive_int(
             request.form.get("target_size_kb"), "目标体积(KB)"
@@ -440,9 +451,9 @@ def preview_size():
 
         target_bytes = target_size_kb * 1024
         preview_rows: list[dict[str, object]] = []
-        for strategy in ("quality", "target", "strict"):
-            allow_quality_loss = strategy in {"target", "strict"}
-            strict_mode = strategy == "strict"
+        for strategy in ("strict",):
+            allow_quality_loss = True
+            strict_mode = True
             total_before = 0
             total_after = 0
             failed = 0
@@ -532,20 +543,15 @@ def process():
     if is_cloud_mode():
         input_mode = "upload"
         output_mode = "download"
-    target_strategy = request.form.get("target_strategy", "quality")
-    strict_content_mode = request.form.get("strict_content_mode", "any")
+    target_strategy = "strict"
     naming_template = (request.form.get("naming_template") or "").strip()
     keep_structure = parse_bool(request.form.get("keep_structure"), True)
     output_suffix = sanitize_suffix(request.form.get("output_suffix"))
     if output_mode not in {"download", "folder", "original"}:
         output_mode = "download"
-    if target_strategy not in {"quality", "target", "strict"}:
-        target_strategy = "quality"
-    if strict_content_mode not in {"any", "preserve"}:
-        strict_content_mode = "any"
-    strict_mode = target_strategy == "strict"
-    strict_allow_placeholder = strict_content_mode == "any"
-    allow_quality_loss = target_strategy in {"target", "strict"}
+    strict_mode = True
+    strict_allow_placeholder = True
+    allow_quality_loss = True
     if input_mode not in {"upload", "folder"}:
         input_mode = "upload"
     try:
@@ -579,8 +585,8 @@ def process():
                 compress_to = normalize_target_format(compress_to)
             except ValueError as exc:
                 return api_error(str(exc))
-    if target_strategy in {"target", "strict"} and not target_size_kb:
-        return api_error("当前体积策略需要填写目标输出体积(KB)。")
+    if not target_size_kb:
+        return api_error("严格达标模式需要填写目标输出体积(KB)。")
 
     results: list[tuple[str, int, int]] = []
     details: list[dict[str, object]] = []
@@ -930,6 +936,23 @@ def download(token: str):
 if __name__ == "__main__":
     # 本机：`IMG_TOOL_HOST=127.0.0.1`（默认）
     # 局域网分享：`IMG_TOOL_HOST=0.0.0.0`（见 start_web_share.command）
+    # 打包为 .app 后默认监听全网卡，便于同事访问；仍可用环境变量覆盖。
+    # 与 macOS 隔空播放争用 5000 时，可把下面默认改成 "8080" 后重新打包。
+    _FROZEN_DEFAULT_PORT = "5000"
+    if getattr(sys, "frozen", False):
+        os.environ.setdefault("IMG_TOOL_HOST", "0.0.0.0")
+        os.environ.setdefault("IMG_TOOL_PORT", _FROZEN_DEFAULT_PORT)
     host = os.getenv("IMG_TOOL_HOST", "127.0.0.1")
     port = int(os.getenv("IMG_TOOL_PORT", "5000"))
+    if getattr(sys, "frozen", False):
+        import threading
+        import webbrowser
+
+        def _open_browser() -> None:
+            import time
+
+            time.sleep(1.2)
+            webbrowser.open(f"http://127.0.0.1:{port}/")
+
+        threading.Thread(target=_open_browser, daemon=True).start()
     app.run(host=host, port=port, debug=False, threaded=True)
