@@ -19,8 +19,6 @@ const clearAllBtn = document.getElementById("clearAllBtn");
 const resultFilter = document.getElementById("resultFilter");
 const retryFailedBtn = document.getElementById("retryFailedBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
-const historyText = document.getElementById("historyText");
-const historyList = document.getElementById("historyList");
 const previewGrid = document.getElementById("previewGrid");
 const previewMore = document.getElementById("previewMore");
 const sumCount = document.getElementById("sumCount");
@@ -29,8 +27,6 @@ const sumAfter = document.getElementById("sumAfter");
 const sumRatio = document.getElementById("sumRatio");
 
 const STORAGE_STATE = "imgTool.frontend.state";
-const STORAGE_HISTORY = "imgTool.frontend.history";
-
 /** 固定版本，避免 CDN 静默升级破坏兼容；首次编码时会下载 WASM（约数百 KB）。 */
 const JSQUASH_WEBP_ENCODE = "https://cdn.jsdelivr.net/npm/@jsquash/webp@1.3.0/encode.js";
 const JSQUASH_JPEG_ENCODE = "https://cdn.jsdelivr.net/npm/@jsquash/jpeg@1.2.0/encode.js";
@@ -47,7 +43,6 @@ let selectedFiles = [];
 let latestRows = [];
 let failedNames = [];
 let latestSourceFiles = [];
-const historyItems = [];
 
 function bytesToKb(bytes) {
   return `${(Number(bytes || 0) / 1024).toFixed(1)} KB`;
@@ -151,25 +146,6 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_STATE);
     if (raw) applyState(JSON.parse(raw));
-  } catch (_e) {
-    // Ignore corrupted cache.
-  }
-}
-
-function saveHistory() {
-  localStorage.setItem(STORAGE_HISTORY, JSON.stringify(historyItems.slice(0, 10)));
-}
-
-function loadHistory() {
-  try {
-    const raw = localStorage.getItem(STORAGE_HISTORY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return;
-    historyItems.length = 0;
-    for (const item of parsed.slice(0, 10)) {
-      if (item && typeof item === "object") historyItems.push(item);
-    }
   } catch (_e) {
     // Ignore corrupted cache.
   }
@@ -543,33 +519,6 @@ function currentFiles() {
   return selectedFiles.length ? selectedFiles : Array.from(imagesInput.files || []);
 }
 
-function addHistory(state, rows) {
-  const metCount = rows.filter((r) => r.met).length;
-  historyItems.unshift({
-    at: new Date().toLocaleString(),
-    state,
-    text: `${state.mode}/${state.targetKb || "-"}KB｜${rows.length}张 / 达标${metCount}张`,
-  });
-  while (historyItems.length > 10) historyItems.pop();
-  saveHistory();
-  renderHistory();
-}
-
-function renderHistory() {
-  historyList.innerHTML = "";
-  historyText.textContent = historyItems.length ? "点击“复用参数”可一键套用" : "暂无历史任务";
-  for (let i = 0; i < historyItems.length; i += 1) {
-    const item = historyItems[i];
-    const div = document.createElement("div");
-    div.className = "list-item";
-    div.innerHTML = `
-      <span>${item.at}｜${item.text}</span>
-      <button type="button" class="btn btn--secondary btn--compact" data-hidx="${i}">复用参数</button>
-    `;
-    historyList.appendChild(div);
-  }
-}
-
 function applyPreset(value) {
   if (!value) return;
   if (value === "social") {
@@ -629,7 +578,6 @@ async function runTask(files, state, options = {}) {
   statusText.textContent = "处理完成";
   runBtn.disabled = false;
   downloadBtn.disabled = outputFiles.length === 0;
-  addHistory(state, rows);
   return rows;
 }
 
@@ -768,19 +716,6 @@ exportCsvBtn.addEventListener("click", exportCsv);
 imagesInput.addEventListener("change", () => setSelectedFiles(Array.from(imagesInput.files || [])));
 pickFilesBtn.addEventListener("click", () => imagesInput.click());
 
-historyList.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-  const idxRaw = target.getAttribute("data-hidx");
-  if (idxRaw == null) return;
-  const item = historyItems[Number(idxRaw)];
-  if (!item) return;
-  applyState(item.state);
-  saveState();
-  refreshPreview();
-  statusText.textContent = "已复用历史参数";
-});
-
 previewGrid.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
@@ -823,9 +758,7 @@ dropZone.addEventListener("drop", async (event) => {
 });
 
 loadState();
-loadHistory();
 updateMode();
 setSelectedFiles([]);
 renderRows([]);
-renderHistory();
 refreshPreview();
