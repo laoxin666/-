@@ -7,12 +7,15 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>图片压缩与格式转化</title>
-    <link rel="stylesheet" href="./style.css?v=20260414-2" />
+    <link rel="stylesheet" href="./style.css?v=20260414-3" />
   </head>
   <body>
     <main class="app">
       <h1>图片压缩与格式转化</h1>
-      <p class="hint">纯前端版本，所有处理都在浏览器本地完成。</p>
+      <p class="hint">
+        纯前端版本，所有处理都在浏览器本地完成。JPEG / WebP 在保持原始像素尺寸时优先使用
+        <strong>MozJPEG / libwebp（WASM）</strong>编码，通常比浏览器内置编码更小、更容易达标。
+      </p>
 
       <section class="panel">
         <div class="grid">
@@ -149,6 +152,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20260414-2"></script>
+    <script type="module" src="./app.js?v=20260414-3"></script>
   </body>
 </html>

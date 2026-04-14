@@ -37,6 +37,10 @@ const sumRatio = document.getElementById("sumRatio");
 const STORAGE_STATE = "imgTool.frontend.state";
 const STORAGE_HISTORY = "imgTool.frontend.history";
 
+/** 固定版本，避免 CDN 静默升级破坏兼容；首次编码时会下载 WASM（约数百 KB）。 */
+const JSQUASH_WEBP_ENCODE = "https://cdn.jsdelivr.net/npm/@jsquash/webp@1.3.0/encode.js";
+const JSQUASH_JPEG_ENCODE = "https://cdn.jsdelivr.net/npm/@jsquash/jpeg@1.2.0/encode.js";
+
 const MIME_BY_EXT = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -228,6 +232,178 @@ function drawToCanvas(bitmap, width, height) {
   return canvas;
 }
 
+function bitmapToImageData(bitmap) {
+  const canvas = drawToCanvas(bitmap, bitmap.width, bitmap.height);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+/** MozJPEG / libwebp 使用 1–100 质量刻度。 */
+function wasmQualityMin100(profile) {
+  return profile === "preserve" ? 48 : 3;
+}
+
+/** WASM 有时返回整块内存缓冲，按文件头裁剪出真实 JPEG 长度。 */
+function jpegPayloadByteLength(buf) {
+  const u8 = new Uint8Array(buf);
+  if (u8.length < 4 || u8[0] !== 0xff || u8[1] !== 0xd8) return u8.byteLength;
+  for (let i = u8.length - 2; i >= 0; i -= 1) {
+    if (u8[i] === 0xff && u8[i + 1] === 0xd9) return i + 2;
+  }
+  return u8.byteLength;
+}
+
+/** 按 RIFF 头裁剪 WebP 实际长度。 */
+function webpPayloadByteLength(buf) {
+  const u8 = new Uint8Array(buf);
+  if (u8.length < 12 || u8[0] !== 0x52 || u8[1] !== 0x49 || u8[2] !== 0x46 || u8[3] !== 0x46) {
+    return u8.byteLength;
+  }
+  const riffSize = u8[4] | (u8[5] << 8) | (u8[6] << 16) | (u8[7] << 24);
+  const total = 8 + riffSize;
+  if (!Number.isFinite(total) || total <= 8) return u8.byteLength;
+  return Math.min(u8.byteLength, total);
+}
+
+function jpegWasmBufferToBlob(buf) {
+  const u8 = new Uint8Array(buf);
+  const n = jpegPayloadByteLength(buf);
+  return new Blob([u8.subarray(0, n)], { type: "image/jpeg" });
+}
+
+function webpWasmBufferToBlob(buf) {
+  const u8 = new Uint8Array(buf);
+  const n = webpPayloadByteLength(buf);
+  return new Blob([u8.subarray(0, n)], { type: "image/webp" });
+}
+
+async function encodeJpegWithMozjpeg(bitmap, targetBytes, profile, w, h) {
+  const imageData = bitmapToImageData(bitmap);
+  const mod = await import(JSQUASH_JPEG_ENCODE);
+  const encode = mod.default;
+  const qMin = wasmQualityMin100(profile);
+  let lo = qMin;
+  let hi = 100;
+  let bestBlob = null;
+  for (let i = 0; i < 28; i += 1) {
+    if (lo > hi) break;
+    const q = Math.floor((lo + hi + 1) / 2);
+    const buf = await encode(imageData, {
+      quality: q,
+      progressive: true,
+      optimize_coding: true,
+      quant_table: 3,
+    });
+    const size = jpegPayloadByteLength(buf);
+    if (size <= targetBytes) {
+      bestBlob = jpegWasmBufferToBlob(buf);
+      lo = q + 1;
+    } else {
+      hi = q - 1;
+    }
+  }
+  if (bestBlob) {
+    return { blob: bestBlob, met: true, note: `保持 ${w}×${h}px，MozJPEG(WASM) 质量调优` };
+  }
+  const lowBuf = await encode(imageData, {
+    quality: qMin,
+    progressive: true,
+    optimize_coding: true,
+    quant_table: 3,
+  });
+  const blob = jpegWasmBufferToBlob(lowBuf);
+  const met = blob.size <= targetBytes;
+  return {
+    blob,
+    met,
+    note: met
+      ? `保持 ${w}×${h}px，MozJPEG(WASM)`
+      : `保持 ${w}×${h}px 时 JPEG 仍超出目标；请提高目标 KB`,
+  };
+}
+
+async function encodeWebpWithWasm(bitmap, targetBytes, profile, w, h) {
+  const imageData = bitmapToImageData(bitmap);
+  const mod = await import(JSQUASH_WEBP_ENCODE);
+  const encode = mod.default;
+  const qMin = wasmQualityMin100(profile);
+
+  const bufTry = await encode(imageData, {
+    target_size: targetBytes,
+    target_PSNR: 0,
+    quality: 85,
+    pass: profile === "preserve" ? 5 : 9,
+    method: 6,
+    lossless: 0,
+    thread_level: 1,
+  });
+  let blob = webpWasmBufferToBlob(bufTry);
+  if (blob.size <= targetBytes) {
+    return { blob, met: true, note: `保持 ${w}×${h}px，libwebp(WASM) 目标体积模式` };
+  }
+
+  let lo = qMin;
+  let hi = 100;
+  let bestBlob = null;
+  for (let i = 0; i < 28; i += 1) {
+    if (lo > hi) break;
+    const q = Math.floor((lo + hi + 1) / 2);
+    const buf = await encode(imageData, {
+      quality: q,
+      target_size: 0,
+      target_PSNR: 0,
+      pass: 6,
+      method: 6,
+      lossless: 0,
+    });
+    if (webpPayloadByteLength(buf) <= targetBytes) {
+      bestBlob = webpWasmBufferToBlob(buf);
+      lo = q + 1;
+    } else {
+      hi = q - 1;
+    }
+  }
+  if (bestBlob) {
+    return { blob: bestBlob, met: true, note: `保持 ${w}×${h}px，libwebp(WASM) 质量调优` };
+  }
+  const lowBuf = await encode(imageData, {
+    quality: qMin,
+    target_size: 0,
+    pass: 4,
+    method: 6,
+    lossless: 0,
+  });
+  blob = webpWasmBufferToBlob(lowBuf);
+  const met = blob.size <= targetBytes;
+  return {
+    blob,
+    met,
+    note: met
+      ? `保持 ${w}×${h}px，libwebp(WASM)`
+      : `保持 ${w}×${h}px 时 WebP 仍超出目标；请提高目标 KB`,
+  };
+}
+
+/**
+ * 有损格式优先走 jSquash WASM（更小、更易达标）；失败时回退 canvas.toBlob。
+ */
+async function encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, profile, w, h) {
+  try {
+    const ext = String(targetExt || "").toLowerCase();
+    if (ext === "webp") {
+      return await encodeWebpWithWasm(bitmap, targetBytes, profile, w, h);
+    }
+    if (ext === "jpeg" || ext === "jpg") {
+      return await encodeJpegWithMozjpeg(bitmap, targetBytes, profile, w, h);
+    }
+  } catch (err) {
+    console.warn("WASM 编码失败，回退到 canvas.toBlob", err);
+  }
+  const canvas = drawToCanvas(bitmap, w, h);
+  const qMin = lossyQualityMin(profile);
+  return binarySearchQualityFullSize(canvas, mime, targetBytes, qMin);
+}
+
 function lossyQualityMin(profile) {
   return profile === "preserve" ? 0.48 : 0.03;
 }
@@ -276,11 +452,11 @@ async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressiv
   if (!mime) throw new Error(`不支持目标格式: ${targetExt}`);
   const bitmap = await fileToImageBitmap(file);
   try {
-    const canvas = drawToCanvas(bitmap, bitmap.width, bitmap.height);
     const w = bitmap.width;
     const h = bitmap.height;
 
     if (mime === "image/png") {
+      const canvas = drawToCanvas(bitmap, w, h);
       const blob = await canvasToBlob(canvas, mime, undefined);
       const met = blob.size <= targetBytes;
       return {
@@ -292,8 +468,7 @@ async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressiv
       };
     }
 
-    const qMin = lossyQualityMin(profile);
-    return await binarySearchQualityFullSize(canvas, mime, targetBytes, qMin);
+    return await encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, profile, w, h);
   } finally {
     bitmap.close();
   }
@@ -618,7 +793,7 @@ function refreshPreview() {
     `;
     previewCards.appendChild(card);
   }
-  previewStatus.textContent = `基于 ${Math.min(files.length, 3)} 张样本；实际输出保持原始宽高像素，JPEG/WebP 仅调质量，PNG 不缩小尺寸`;
+  previewStatus.textContent = `基于 ${Math.min(files.length, 3)} 张样本；实际输出保持原始宽高像素，JPEG/WebP 优先用 MozJPEG/libwebp(WASM)，PNG 不缩小尺寸`;
 }
 
 async function readEntryRecursive(entry) {
