@@ -30,6 +30,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (os.path.join(spec_dir, "templates"), "templates"),
+        (os.path.join(spec_dir, "frontend"), "frontend"),
     ],
     hiddenimports=["image_tool", "PIL._imaging", "PIL._webp"],
     hookspath=[],

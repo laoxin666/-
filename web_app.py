@@ -19,7 +19,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_file, send_from_directory
 from PIL import Image
 from werkzeug.utils import secure_filename
 
@@ -35,6 +35,7 @@ def _app_root() -> Path:
 
 _APP_ROOT = _app_root()
 _static = _APP_ROOT / "static"
+_frontend = _APP_ROOT / "frontend"
 _flask_kwargs: dict[str, str | None] = {"template_folder": str(_APP_ROOT / "templates")}
 _flask_kwargs["static_folder"] = str(_static) if _static.is_dir() else None
 
@@ -256,7 +257,23 @@ def add_download_to_cache(data: bytes) -> str:
 
 @app.get("/")
 def index():
+    if _frontend.is_dir():
+        return redirect("/frontend/", code=302)
     return send_from_directory(str(_APP_ROOT / "templates"), "index.html")
+
+
+@app.get("/frontend/")
+def frontend_index():
+    if _frontend.is_dir():
+        return send_from_directory(str(_frontend), "index.html")
+    return send_from_directory(str(_APP_ROOT / "templates"), "index.html")
+
+
+@app.get("/frontend/<path:filename>")
+def frontend_assets(filename: str):
+    if not _frontend.is_dir():
+        return api_error("前端页面资源不存在，请重新打包应用。", 404)
+    return send_from_directory(str(_frontend), filename)
 
 
 @app.get("/config")
