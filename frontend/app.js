@@ -220,15 +220,100 @@ function canvasToBlob(canvas, mime, quality) {
 }
 
 function candidateSet(profile, mime) {
+  const pngQs = [undefined];
+  const lossyQsPreserve = [0.96, 0.9, 0.84, 0.78, 0.72, 0.66, 0.58, 0.5, 0.42, 0.34];
+  const lossyQsAggressive = [0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44, 0.38, 0.32, 0.26, 0.2, 0.14];
   if (profile === "preserve") {
     return {
-      scales: [1, 0.95, 0.9, 0.85, 0.8, 0.75],
-      qualities: mime === "image/png" ? [undefined] : [0.96, 0.9, 0.84, 0.78, 0.72, 0.66],
+      scales: [1, 0.98, 0.95, 0.92, 0.88, 0.84, 0.8, 0.75, 0.7, 0.65],
+      qualities: mime === "image/png" ? pngQs : lossyQsPreserve,
     };
   }
   return {
-    scales: [1, 0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56],
-    qualities: mime === "image/png" ? [undefined] : [0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44],
+    scales: [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3],
+    qualities: mime === "image/png" ? pngQs : lossyQsAggressive,
+  };
+}
+
+function drawToCanvas(bitmap, width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, width);
+  canvas.height = Math.max(1, height);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/** 在固定画布上对 JPEG/WebP 二分质量，尽量在不超过 targetBytes 的前提下取较高质量。 */
+async function binarySearchQuality(canvas, mime, targetBytes) {
+  const qMin = 0.03;
+  const qMax = 1;
+  let bestUnder = null;
+  let lo = qMin;
+  let hi = qMax;
+  for (let i = 0; i < 22; i += 1) {
+    const mid = (lo + hi) / 2;
+    const blob = await canvasToBlob(canvas, mime, mid);
+    if (blob.size <= targetBytes) {
+      bestUnder = blob;
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  if (bestUnder) {
+    return { blob: bestUnder, met: true, note: "强制: 二分质量调优" };
+  }
+  const lowest = await canvasToBlob(canvas, mime, qMin);
+  return { blob: lowest, met: lowest.size <= targetBytes, note: "强制: 最低质量" };
+}
+
+/**
+ * 网格未达标时：逐步缩小尺寸；有损格式配合二分质量。尽量强制压到 targetBytes 以下。
+ */
+async function forceEncodeUnderTarget(bitmap, mime, targetBytes) {
+  const minSide = 24;
+  let width = bitmap.width;
+  let height = bitmap.height;
+  let bestBlob = null;
+  let bestLabel = "强制压缩";
+
+  const isPng = mime === "image/png";
+
+  for (let step = 0; step < 80; step += 1) {
+    const canvas = drawToCanvas(bitmap, width, height);
+
+    if (isPng) {
+      const blob = await canvasToBlob(canvas, mime, undefined);
+      if (!bestBlob || blob.size < bestBlob.size) {
+        bestBlob = blob;
+        bestLabel = `强制: PNG 缩放至 ${canvas.width}×${canvas.height}`;
+      }
+      if (blob.size <= targetBytes) {
+        return { blob, met: true, note: bestLabel };
+      }
+    } else {
+      const { blob, met, note } = await binarySearchQuality(canvas, mime, targetBytes);
+      if (!bestBlob || blob.size < bestBlob.size) {
+        bestBlob = blob;
+        bestLabel = `${note} (${canvas.width}×${canvas.height})`;
+      }
+      if (met) {
+        return { blob, met: true, note: bestLabel };
+      }
+    }
+
+    if (Math.min(width, height) <= minSide) {
+      break;
+    }
+    width = Math.max(minSide, Math.floor(width * 0.88));
+    height = Math.max(minSide, Math.floor(height * 0.88));
+  }
+
+  return {
+    blob: bestBlob,
+    met: !!(bestBlob && bestBlob.size <= targetBytes),
+    note: bestBlob ? `${bestLabel}（已达浏览器可压极限）` : "编码失败",
   };
 }
 
@@ -244,11 +329,7 @@ async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressiv
     for (const scale of scales) {
       const width = Math.max(1, Math.floor(bitmap.width * scale));
       const height = Math.max(1, Math.floor(bitmap.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(bitmap, 0, 0, width, height);
+      const canvas = drawToCanvas(bitmap, width, height);
 
       for (const q of qualities) {
         const blob = await canvasToBlob(canvas, mime, q);
@@ -261,7 +342,22 @@ async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressiv
         }
       }
     }
-    return { blob: bestBlob, met: bestBlob ? bestBlob.size <= targetBytes : false, note: bestLabel };
+
+    if (bestBlob && bestBlob.size <= targetBytes) {
+      return { blob: bestBlob, met: true, note: bestLabel };
+    }
+
+    const forced = await forceEncodeUnderTarget(bitmap, mime, targetBytes);
+    if (forced.met && forced.blob) {
+      return forced;
+    }
+    if (forced.blob && bestBlob && forced.blob.size < bestBlob.size) {
+      return forced;
+    }
+    if (forced.blob && !bestBlob) {
+      return forced;
+    }
+    return { blob: bestBlob, met: !!(bestBlob && bestBlob.size <= targetBytes), note: bestLabel };
   } finally {
     bitmap.close();
   }
