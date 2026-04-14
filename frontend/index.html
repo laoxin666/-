@@ -7,103 +7,119 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>图片压缩与格式转化</title>
-    <link rel="stylesheet" href="./style.css?v=20260414-5" />
+    <link rel="stylesheet" href="./style.css?v=20260414-6" />
   </head>
   <body>
     <main class="app">
-      <h1>图片压缩与格式转化</h1>
-      <p class="hint">
-        纯前端版本，所有处理都在浏览器本地完成。JPEG / WebP 在保持原始像素尺寸时优先使用
-        <strong>MozJPEG / libwebp（WASM）</strong>编码，通常比浏览器内置编码更小、更容易达标。
-      </p>
+      <header class="hero">
+        <div>
+          <div class="eyebrow">PixelForge Studio</div>
+          <h1>图片压缩与格式转化</h1>
+          <p class="hint">
+            纯前端版本，所有处理都在浏览器本地完成。JPEG / WebP 在保持原始像素尺寸时优先使用
+            <strong>MozJPEG / libwebp（WASM）</strong>编码，通常比浏览器内置编码更小、更容易达标。
+          </p>
+        </div>
+        <div class="hero-badge">商业级本地处理</div>
+      </header>
 
       <section class="panel">
-        <div class="grid">
-          <div>
-            <label>一键推荐参数</label>
+        <div class="panel-head">
+          <h2>工作台</h2>
+          <div class="top-controls">
             <select id="presetSelect">
               <option value="">手动设置</option>
               <option value="social">社媒发布</option>
               <option value="ecommerce">电商图</option>
               <option value="archive">归档备份</option>
             </select>
-          </div>
-          <div>
-            <label>&nbsp;</label>
             <button id="clearAllBtn" type="button">一键清空</button>
           </div>
         </div>
 
-        <div class="row">
-          <label>上传图片</label>
-          <input id="imagesInput" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff" />
-        </div>
-        <div id="dropZone" class="drop-zone">
-          <strong>拖拽图片或文件夹到这里</strong>
-          <div class="drop-hint" id="fileMeta">未选择文件</div>
-        </div>
-        <div class="preview-tools">
-          <span class="summary">已选预览</span>
-        </div>
-        <div id="previewGrid" class="preview-grid"></div>
-        <div id="previewMore" class="summary"></div>
+        <div class="workbench-grid">
+          <div class="workbench-col">
+            <div class="row">
+              <label>上传图片</label>
+              <input id="imagesInput" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff" />
+            </div>
+            <div id="dropZone" class="drop-zone">
+              <strong>拖拽图片或文件夹到这里</strong>
+              <div class="drop-hint" id="fileMeta">未选择文件</div>
+            </div>
+            <div class="preview-tools">
+              <span class="summary">已选预览</span>
+            </div>
+            <div id="previewGrid" class="preview-grid"></div>
+            <div id="previewMore" class="summary"></div>
+          </div>
 
-        <div class="grid">
-          <div>
-            <label>处理模式</label>
-            <select id="modeSelect">
-              <option value="compress">无损压缩（尽量）</option>
-              <option value="convert">格式转换</option>
-            </select>
-          </div>
-          <div id="compressToWrap">
-            <label>压缩输出格式</label>
-            <select id="compressToSelect">
-              <option value="same">保持原格式</option>
-              <option value="jpeg">jpeg</option>
-              <option value="webp">webp</option>
-              <option value="png">png</option>
-              <option value="tiff">tiff</option>
-              <option value="bmp">bmp</option>
-              <option value="gif">gif</option>
-            </select>
-          </div>
-          <div id="targetWrap" class="hidden">
-            <label>目标格式</label>
-            <select id="targetSelect">
-              <option value="jpeg">jpeg</option>
-              <option value="webp">webp</option>
-              <option value="png">png</option>
-              <option value="tiff">tiff</option>
-              <option value="bmp">bmp</option>
-              <option value="gif">gif</option>
-            </select>
-          </div>
-          <div>
-            <label>目标体积(KB)</label>
-            <input id="targetSizeInput" type="number" min="1" step="1" placeholder="例如 300" />
+          <div class="workbench-col">
+            <div class="stack-fields">
+              <div>
+                <label>处理模式</label>
+                <select id="modeSelect">
+                  <option value="compress">无损压缩（尽量）</option>
+                  <option value="convert">格式转换</option>
+                </select>
+              </div>
+              <div id="compressToWrap">
+                <label>压缩输出格式</label>
+                <select id="compressToSelect">
+                  <option value="same">保持原格式</option>
+                  <option value="jpeg">jpeg</option>
+                  <option value="webp">webp</option>
+                  <option value="png">png</option>
+                  <option value="tiff">tiff</option>
+                  <option value="bmp">bmp</option>
+                  <option value="gif">gif</option>
+                </select>
+              </div>
+              <div id="targetWrap" class="hidden">
+                <label>目标格式</label>
+                <select id="targetSelect">
+                  <option value="jpeg">jpeg</option>
+                  <option value="webp">webp</option>
+                  <option value="png">png</option>
+                  <option value="tiff">tiff</option>
+                  <option value="bmp">bmp</option>
+                  <option value="gif">gif</option>
+                </select>
+              </div>
+              <div>
+                <label>目标体积(KB)</label>
+                <input id="targetSizeInput" type="number" min="1" step="1" placeholder="例如 300" />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="actions">
-          <button id="runBtn" type="button">开始处理</button>
-          <button id="enqueueBtn" type="button">加入队列</button>
-          <button id="downloadBtn" type="button" disabled>下载 ZIP</button>
-          <span id="statusText">等待任务</span>
+        <div class="action-bar">
+          <div class="status-wrap">
+            <span class="status-dot"></span>
+            <span id="statusText">等待任务</span>
+          </div>
+          <div class="action-group">
+            <button id="enqueueBtn" type="button">加入队列</button>
+            <button id="downloadBtn" type="button" disabled>下载 ZIP</button>
+            <button id="runBtn" type="button">开始处理</button>
+          </div>
         </div>
         <div class="progress"><div id="progressBar"></div></div>
       </section>
 
       <section class="panel">
-        <h2>处理结果</h2>
-        <div class="actions">
-          <select id="resultFilter">
-            <option value="all">显示全部</option>
-            <option value="met">仅达标</option>
-            <option value="unmet">仅未达标</option>
-          </select>
-          <button id="retryFailedBtn" type="button">重试失败项</button>
-          <button id="exportCsvBtn" type="button">导出 CSV</button>
+        <div class="panel-head">
+          <h2>处理结果</h2>
+          <div class="top-controls">
+            <select id="resultFilter">
+              <option value="all">显示全部</option>
+              <option value="met">仅达标</option>
+              <option value="unmet">仅未达标</option>
+            </select>
+            <button id="retryFailedBtn" type="button">重试失败项</button>
+            <button id="exportCsvBtn" type="button">导出 CSV</button>
+          </div>
         </div>
         <div class="result-cards">
           <div class="result-card"><div class="k">文件数</div><div class="v" id="sumCount">0</div></div>
@@ -126,23 +142,25 @@
         </table>
       </section>
 
-      <section class="panel">
-        <h2>任务队列</h2>
-        <div class="panel-head">
-          <div class="summary" id="queueText">队列为空</div>
-          <button id="clearPendingBtn" type="button">清空等待</button>
-        </div>
-        <div id="queueList" class="list"></div>
-      </section>
+      <div class="secondary-grid">
+        <section class="panel">
+          <h2>任务队列</h2>
+          <div class="panel-head">
+            <div class="summary" id="queueText">队列为空</div>
+            <button id="clearPendingBtn" type="button">清空等待</button>
+          </div>
+          <div id="queueList" class="list"></div>
+        </section>
 
-      <section class="panel">
-        <h2>最近任务</h2>
-        <div class="summary" id="historyText">暂无历史任务</div>
-        <div id="historyList" class="list"></div>
-      </section>
+        <section class="panel">
+          <h2>最近任务</h2>
+          <div class="summary" id="historyText">暂无历史任务</div>
+          <div id="historyList" class="list"></div>
+        </section>
+      </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script type="module" src="./app.js?v=20260414-5"></script>
+    <script type="module" src="./app.js?v=20260414-6"></script>
   </body>
 </html>
