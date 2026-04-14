@@ -22,7 +22,27 @@
     <main class="app">
       <header class="hero">
         <div>
-          <div class="eyebrow">PixelForge Studio</div>
+          <div class="eyebrow brand-pill">
+            <span class="ghost-logo" aria-hidden="true">
+              <svg viewBox="0 0 64 64" role="img">
+                <defs>
+                  <linearGradient id="ghostDream" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#7a7dff" />
+                    <stop offset="55%" stop-color="#58c6ff" />
+                    <stop offset="100%" stop-color="#a16bff" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M32 8c-11.6 0-21 8.9-21 19.9v24.8c0 1.4 1.6 2.2 2.8 1.4l5.2-3.7 5.2 3.7c1 .7 2.3.7 3.3 0l4.5-3.2 4.5 3.2c1 .7 2.3.7 3.3 0l5.2-3.7 5.2 3.7c1.2.8 2.8 0 2.8-1.4V27.9C53 16.9 43.6 8 32 8z"
+                  fill="url(#ghostDream)"
+                />
+                <circle cx="24" cy="29" r="3.6" fill="#ffffff" />
+                <circle cx="40" cy="29" r="3.6" fill="#ffffff" />
+                <path d="M22 39c3 3 17 3 20 0" fill="none" stroke="#eaf6ff" stroke-width="2.4" stroke-linecap="round" />
+              </svg>
+            </span>
+            <span>PixelForge Studio</span>
+          </div>
           <h1>图片压缩与格式转化</h1>
           <p class="hint">
             纯前端版本，所有处理都在浏览器本地完成。JPEG / WebP 在保持原始像素尺寸时优先使用
