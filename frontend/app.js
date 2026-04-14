@@ -24,9 +24,6 @@ const queueList = document.getElementById("queueList");
 const clearPendingBtn = document.getElementById("clearPendingBtn");
 const historyText = document.getElementById("historyText");
 const historyList = document.getElementById("historyList");
-const refreshPreviewBtn = document.getElementById("refreshPreviewBtn");
-const previewStatus = document.getElementById("previewStatus");
-const previewCards = document.getElementById("previewCards");
 const previewGrid = document.getElementById("previewGrid");
 const previewMore = document.getElementById("previewMore");
 const sumCount = document.getElementById("sumCount");
@@ -748,52 +745,8 @@ async function downloadZip() {
   downloadBtn.disabled = false;
 }
 
-function estimateStrategy(files, state, ratio, label) {
-  const targetKb = Number(state.targetKb || 0);
-  const targetBytes = Math.floor(targetKb * 1024);
-  const sampled = files.slice(0, 3);
-  if (!sampled.length || targetBytes <= 0) return null;
-  let totalBefore = 0;
-  let totalAfter = 0;
-  let unmet = 0;
-  for (const f of sampled) {
-    const before = f.size || 0;
-    const after = Math.max(1024, Math.floor(before * ratio));
-    totalBefore += before;
-    totalAfter += after;
-    if (after > targetBytes) unmet += 1;
-  }
-  const saved = totalBefore - totalAfter;
-  const ratioPct = totalBefore ? ((saved / totalBefore) * 100).toFixed(1) : "0.0";
-  return { label, after: totalAfter, ratioPct, unmet, sampled: sampled.length };
-}
-
 function refreshPreview() {
-  const files = currentFiles();
-  const state = getCurrentState();
-  previewCards.innerHTML = "";
-  const targetKb = Number(state.targetKb || 0);
-  if (!files.length || !Number.isFinite(targetKb) || targetKb <= 0) {
-    previewStatus.textContent = "请选择图片并填写目标体积";
-    return;
-  }
-  const candidates = [estimateStrategy(files, state, 0.65, "体积粗算参考（样本）")].filter(Boolean);
-  if (!candidates.length) {
-    previewStatus.textContent = "暂无预览数据";
-    return;
-  }
-  for (const item of candidates) {
-    const card = document.createElement("div");
-    card.className = "preview-card";
-    card.innerHTML = `
-      <div class="preview-title">${item.label}</div>
-      <div class="preview-metric">预计输出：${bytesToKb(item.after)}</div>
-      <div class="preview-metric">预计节省：+${item.ratioPct}%</div>
-      <div class="preview-metric">未达标：${item.unmet} 张</div>
-    `;
-    previewCards.appendChild(card);
-  }
-  previewStatus.textContent = `基于 ${Math.min(files.length, 3)} 张样本；实际输出保持原始宽高像素，JPEG/WebP 优先用 MozJPEG/libwebp(WASM)，PNG 不缩小尺寸`;
+  // 策略预览功能已移除，保留空函数以兼容现有调用点。
 }
 
 async function readEntryRecursive(entry) {
@@ -859,7 +812,6 @@ clearAllBtn.addEventListener("click", () => {
 retryFailedBtn.addEventListener("click", retryFailed);
 exportCsvBtn.addEventListener("click", exportCsv);
 clearPendingBtn.addEventListener("click", clearPendingTasks);
-refreshPreviewBtn.addEventListener("click", refreshPreview);
 imagesInput.addEventListener("change", () => setSelectedFiles(Array.from(imagesInput.files || [])));
 
 historyList.addEventListener("click", (event) => {
