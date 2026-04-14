@@ -109,7 +109,7 @@ function renderSelectedPreview() {
       <img src="${url}" alt="${file.name}" />
       <div class="preview-meta">
         <div title="${file.name}">${file.name}</div>
-        <button type="button" data-rmidx="${i}">移除</button>
+        <button type="button" class="btn btn--secondary btn--block" data-rmidx="${i}">移除</button>
       </div>
     `;
     const img = card.querySelector("img");
@@ -549,7 +549,7 @@ function renderHistory() {
     div.className = "list-item";
     div.innerHTML = `
       <span>${item.at}｜${item.text}</span>
-      <button type="button" class="mini-btn" data-hidx="${i}">复用参数</button>
+      <button type="button" class="btn btn--secondary btn--compact" data-hidx="${i}">复用参数</button>
     `;
     historyList.appendChild(div);
   }
@@ -640,7 +640,7 @@ function renderQueue() {
     div.className = "list-item";
     div.innerHTML = `
       <span>#${i + 1}｜${task.files.length}张｜${task.state.mode}/${task.state.targetKb || "-"}KB｜${task.status}</span>
-      <button type="button" class="mini-btn" data-qidx="${task.id}">移除</button>
+      <button type="button" class="btn btn--secondary btn--compact" data-qidx="${task.id}">移除</button>
     `;
     queueList.appendChild(div);
   }

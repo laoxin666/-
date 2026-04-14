@@ -12,6 +12,11 @@
   --red-bg: #fdeced;
   --red-text: #b42318;
   --shadow: 0 16px 44px rgba(13, 16, 23, 0.08), 0 2px 8px rgba(13, 16, 23, 0.05);
+  /* 统一控件尺寸（按钮 / 下拉 / 数字输入） */
+  --control-h: 44px;
+  --control-r: 12px;
+  --control-px: 16px;
+  --control-fs: 14px;
 }
 
 * {
@@ -119,11 +124,13 @@ h2 {
 .top-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .top-controls select {
-  min-width: 180px;
+  min-width: 168px;
+  flex: 0 1 auto;
 }
 
 .workbench-grid {
@@ -159,15 +166,33 @@ button {
   font: inherit;
 }
 
-input,
+input[type="text"],
+input[type="number"],
+input[type="search"],
 select {
   width: 100%;
+  min-height: var(--control-h);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 12px;
+  border-radius: var(--control-r);
+  padding: 0 12px;
+  font-size: var(--control-fs);
+  line-height: 1.2;
   background: rgba(255, 255, 255, 0.95);
   color: var(--text);
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+input[type="file"] {
+  width: 100%;
+  min-height: var(--control-h);
+  border: 1px solid var(--line);
+  border-radius: var(--control-r);
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  cursor: pointer;
 }
 
 input:focus,
@@ -178,59 +203,72 @@ select:focus {
   background: #fff;
 }
 
-button {
-  border: none;
-  border-radius: 14px;
-  padding: 10px 14px;
-  background: linear-gradient(180deg, var(--blue) 0%, var(--blue-deep) 100%);
-  color: #fff;
-  font-weight: 620;
+/* 按钮体系统一：仅使用 .btn，避免尺寸漂移 */
+button.btn {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding: 0 var(--control-px);
+  border-radius: var(--control-r);
+  font-size: var(--control-fs);
+  font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.18s ease, filter 0.18s ease;
-  box-shadow: 0 8px 18px rgba(10, 132, 255, 0.24);
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease,
+    border-color 0.18s ease;
 }
 
-button:hover {
+button.btn--primary {
+  border: none;
+  color: #fff;
+  background: linear-gradient(180deg, var(--blue) 0%, var(--blue-deep) 100%);
+  box-shadow: 0 6px 16px rgba(10, 132, 255, 0.22);
+}
+
+button.btn--primary:hover:not([disabled]) {
   filter: saturate(1.04);
   transform: translateY(-1px);
 }
 
-button:active {
+button.btn--secondary {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
+}
+
+button.btn--secondary:hover:not([disabled]) {
+  background: #f8fafc;
+  border-color: #d8dee8;
+}
+
+button.btn:active:not([disabled]) {
   transform: translateY(0);
 }
 
-button[disabled] {
-  opacity: 0.58;
+button.btn[disabled] {
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.mini-btn {
-  padding: 7px 10px;
-  font-size: 12px;
+button.btn--compact {
+  padding: 0 12px;
+  min-width: 0;
 }
 
-#clearAllBtn,
-#retryFailedBtn,
-#exportCsvBtn,
-#clearPendingBtn,
-#enqueueBtn,
-#downloadBtn {
-  background: #fff;
-  color: #2f2f32;
-  border: 1px solid var(--line);
-  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
+button.btn--block {
+  width: 100%;
 }
 
-#clearAllBtn:hover,
-#retryFailedBtn:hover,
-#exportCsvBtn:hover,
-#clearPendingBtn:hover,
-#enqueueBtn:hover,
-#downloadBtn:hover {
-  background: #f8fafc;
+#runBtn {
+  min-width: 120px;
 }
 
 .action-bar {
@@ -256,11 +294,9 @@ button[disabled] {
 
 .action-group {
   display: inline-flex;
-  gap: 8px;
-}
-
-#runBtn {
-  min-width: 116px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .drop-zone {
@@ -324,11 +360,8 @@ button[disabled] {
   color: #4b5563;
 }
 
-.preview-meta button {
+.preview-meta .btn {
   margin-top: 6px;
-  width: 100%;
-  padding: 6px;
-  font-size: 11px;
 }
 
 .actions {
@@ -457,8 +490,12 @@ tbody tr:hover {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   background: #fff;
+}
+
+.list-item .btn {
+  flex-shrink: 0;
 }
 
 .hidden {

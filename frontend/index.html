@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>图片压缩与格式转化</title>
-    <link rel="stylesheet" href="./style.css?v=20260414-6" />
+    <link rel="stylesheet" href="./style.css?v=20260414-7" />
   </head>
   <body>
     <main class="app">
@@ -33,7 +33,7 @@
               <option value="ecommerce">电商图</option>
               <option value="archive">归档备份</option>
             </select>
-            <button id="clearAllBtn" type="button">一键清空</button>
+            <button id="clearAllBtn" class="btn btn--secondary" type="button">一键清空</button>
           </div>
         </div>
 
@@ -100,9 +100,9 @@
             <span id="statusText">等待任务</span>
           </div>
           <div class="action-group">
-            <button id="enqueueBtn" type="button">加入队列</button>
-            <button id="downloadBtn" type="button" disabled>下载 ZIP</button>
-            <button id="runBtn" type="button">开始处理</button>
+            <button id="enqueueBtn" class="btn btn--secondary" type="button">加入队列</button>
+            <button id="downloadBtn" class="btn btn--secondary" type="button" disabled>下载 ZIP</button>
+            <button id="runBtn" class="btn btn--primary" type="button">开始处理</button>
           </div>
         </div>
         <div class="progress"><div id="progressBar"></div></div>
@@ -117,8 +117,8 @@
               <option value="met">仅达标</option>
               <option value="unmet">仅未达标</option>
             </select>
-            <button id="retryFailedBtn" type="button">重试失败项</button>
-            <button id="exportCsvBtn" type="button">导出 CSV</button>
+            <button id="retryFailedBtn" class="btn btn--secondary" type="button">重试失败项</button>
+            <button id="exportCsvBtn" class="btn btn--secondary" type="button">导出 CSV</button>
           </div>
         </div>
         <div class="result-cards">
@@ -147,7 +147,7 @@
           <h2>任务队列</h2>
           <div class="panel-head">
             <div class="summary" id="queueText">队列为空</div>
-            <button id="clearPendingBtn" type="button">清空等待</button>
+            <button id="clearPendingBtn" class="btn btn--secondary" type="button">清空等待</button>
           </div>
           <div id="queueList" class="list"></div>
         </section>
@@ -161,6 +161,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script type="module" src="./app.js?v=20260414-6"></script>
+    <script type="module" src="./app.js?v=20260414-7"></script>
   </body>
 </html>
