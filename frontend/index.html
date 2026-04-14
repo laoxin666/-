@@ -116,9 +116,8 @@
             <span id="statusText">等待任务</span>
           </div>
           <div class="action-group">
-            <button id="enqueueBtn" class="btn btn--secondary" type="button">加入队列</button>
-            <button id="downloadBtn" class="btn btn--secondary" type="button" disabled>下载 ZIP</button>
             <button id="runBtn" class="btn btn--primary" type="button">开始处理</button>
+            <button id="downloadBtn" class="btn btn--secondary" type="button" disabled>下载 ZIP</button>
           </div>
         </div>
         <div class="progress"><div id="progressBar"></div></div>
@@ -158,22 +157,11 @@
         </table>
       </section>
 
-      <div class="secondary-grid">
-        <section class="panel">
-          <h2>任务队列</h2>
-          <div class="panel-head">
-            <div class="summary" id="queueText">队列为空</div>
-            <button id="clearPendingBtn" class="btn btn--secondary" type="button">清空等待</button>
-          </div>
-          <div id="queueList" class="list"></div>
-        </section>
-
-        <section class="panel">
-          <h2>最近任务</h2>
-          <div class="summary" id="historyText">暂无历史任务</div>
-          <div id="historyList" class="list"></div>
-        </section>
-      </div>
+      <section class="panel">
+        <h2>最近任务</h2>
+        <div class="summary" id="historyText">暂无历史任务</div>
+        <div id="historyList" class="list"></div>
+      </section>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>

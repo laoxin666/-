@@ -4,7 +4,6 @@ const compressToSelect = document.getElementById("compressToSelect");
 const targetSelect = document.getElementById("targetSelect");
 const targetSizeInput = document.getElementById("targetSizeInput");
 const runBtn = document.getElementById("runBtn");
-const enqueueBtn = document.getElementById("enqueueBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const statusText = document.getElementById("statusText");
 const progressBar = document.getElementById("progressBar");
@@ -20,9 +19,6 @@ const clearAllBtn = document.getElementById("clearAllBtn");
 const resultFilter = document.getElementById("resultFilter");
 const retryFailedBtn = document.getElementById("retryFailedBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
-const queueText = document.getElementById("queueText");
-const queueList = document.getElementById("queueList");
-const clearPendingBtn = document.getElementById("clearPendingBtn");
 const historyText = document.getElementById("historyText");
 const historyList = document.getElementById("historyList");
 const previewGrid = document.getElementById("previewGrid");
@@ -51,9 +47,6 @@ let selectedFiles = [];
 let latestRows = [];
 let failedNames = [];
 let latestSourceFiles = [];
-const taskQueue = [];
-let queueRunning = false;
-let taskSeq = 1;
 const historyItems = [];
 
 function bytesToKb(bytes) {
@@ -583,7 +576,6 @@ async function runTask(files, state, options = {}) {
   }
 
   runBtn.disabled = true;
-  enqueueBtn.disabled = true;
   downloadBtn.disabled = true;
   setProgress(0);
   statusText.textContent = "处理中...";
@@ -615,7 +607,6 @@ async function runTask(files, state, options = {}) {
   renderRows(rows);
   statusText.textContent = "处理完成";
   runBtn.disabled = false;
-  enqueueBtn.disabled = false;
   downloadBtn.disabled = outputFiles.length === 0;
   addHistory(state, rows);
   return rows;
@@ -626,64 +617,6 @@ async function runCurrent() {
   const state = getCurrentState();
   saveState();
   await runTask(files, state, { updateOutputFiles: true, profile: "aggressive" });
-}
-
-function renderQueue() {
-  queueList.innerHTML = "";
-  if (!taskQueue.length) {
-    queueText.textContent = "队列为空";
-    return;
-  }
-  queueText.textContent = `队列中 ${taskQueue.length} 项`;
-  for (let i = 0; i < taskQueue.length; i += 1) {
-    const task = taskQueue[i];
-    const div = document.createElement("div");
-    div.className = "list-item";
-    div.innerHTML = `
-      <span>#${i + 1}｜${task.files.length}张｜${task.state.mode}/${task.state.targetKb || "-"}KB｜${task.status}</span>
-      <button type="button" class="btn btn--secondary btn--compact" data-qidx="${task.id}">移除</button>
-    `;
-    queueList.appendChild(div);
-  }
-}
-
-async function runQueue() {
-  if (queueRunning) return;
-  queueRunning = true;
-  while (taskQueue.length) {
-    const task = taskQueue[0];
-    task.status = "运行中";
-    renderQueue();
-    await runTask(task.files, task.state, { updateOutputFiles: true, profile: "aggressive" });
-    taskQueue.shift();
-    renderQueue();
-  }
-  queueRunning = false;
-}
-
-function enqueueCurrentTask() {
-  const files = currentFiles();
-  if (!files.length) {
-    statusText.textContent = "请先选择图片";
-    return;
-  }
-  const state = getCurrentState();
-  saveState();
-  taskQueue.push({
-    id: taskSeq++,
-    files: files.slice(),
-    state,
-    status: "等待中",
-  });
-  renderQueue();
-  runQueue();
-}
-
-function clearPendingTasks() {
-  for (let i = taskQueue.length - 1; i >= 0; i -= 1) {
-    if (taskQueue[i].status !== "运行中") taskQueue.splice(i, 1);
-  }
-  renderQueue();
 }
 
 function exportCsv() {
@@ -792,7 +725,6 @@ targetSizeInput.addEventListener("input", () => {
   refreshPreview();
 });
 runBtn.addEventListener("click", runCurrent);
-enqueueBtn.addEventListener("click", enqueueCurrentTask);
 downloadBtn.addEventListener("click", downloadZip);
 resultFilter.addEventListener("change", () => renderRows(latestRows));
 presetSelect.addEventListener("change", () => applyPreset(presetSelect.value));
@@ -812,7 +744,6 @@ clearAllBtn.addEventListener("click", () => {
 });
 retryFailedBtn.addEventListener("click", retryFailed);
 exportCsvBtn.addEventListener("click", exportCsv);
-clearPendingBtn.addEventListener("click", clearPendingTasks);
 imagesInput.addEventListener("change", () => setSelectedFiles(Array.from(imagesInput.files || [])));
 pickFilesBtn.addEventListener("click", () => imagesInput.click());
 
@@ -827,22 +758,6 @@ historyList.addEventListener("click", (event) => {
   saveState();
   refreshPreview();
   statusText.textContent = "已复用历史参数";
-});
-
-queueList.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-  const idRaw = target.getAttribute("data-qidx");
-  if (idRaw == null) return;
-  const id = Number(idRaw);
-  const idx = taskQueue.findIndex((t) => t.id === id);
-  if (idx < 0) return;
-  if (taskQueue[idx].status === "运行中") {
-    statusText.textContent = "当前运行任务不可移除";
-    return;
-  }
-  taskQueue.splice(idx, 1);
-  renderQueue();
 });
 
 previewGrid.addEventListener("click", (event) => {
@@ -891,6 +806,5 @@ loadHistory();
 updateMode();
 setSelectedFiles([]);
 renderRows([]);
-renderQueue();
 renderHistory();
 refreshPreview();
