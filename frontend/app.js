@@ -231,7 +231,7 @@ function bitmapToImageData(bitmap, width = bitmap.width, height = bitmap.height)
 
 /** MozJPEG / libwebp 使用 1–100 质量刻度。 */
 function wasmQualityMin100(profile) {
-  return profile === "preserve" ? 48 : 3;
+  return profile === "preserve" ? 35 : 1;
 }
 
 /** WASM 有时返回整块内存缓冲，按文件头裁剪出真实 JPEG 长度。 */
@@ -405,39 +405,16 @@ async function encodeAtDimensions(bitmap, targetExt, targetBytes, profile, w, h)
     return {
       blob,
       met,
+      extUsed: "png",
       note: met ? `保持 ${w}×${h}px，PNG 导出` : `PNG ${w}×${h}px 仍超出目标体积`,
     };
   }
-  return encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, profile, w, h);
-}
-
-async function forceMeetTargetByDownscale(bitmap, targetExt, targetBytes, profile, baseResult) {
-  const minSide = 64;
-  let scale = 0.94;
-  let best = baseResult;
-  while (Math.min(bitmap.width * scale, bitmap.height * scale) >= minSide) {
-    const w = Math.max(1, Math.floor(bitmap.width * scale));
-    const h = Math.max(1, Math.floor(bitmap.height * scale));
-    const attempt = await encodeAtDimensions(bitmap, targetExt, targetBytes, profile, w, h);
-    if (!best.blob || attempt.blob.size < best.blob.size) best = attempt;
-    if (attempt.met) {
-      return {
-        blob: attempt.blob,
-        met: true,
-        note: `${attempt.note}；为达标已自动缩放分辨率`,
-      };
-    }
-    scale *= 0.9;
-  }
-  return {
-    blob: best.blob,
-    met: false,
-    note: `${best.note}；已降至最小分辨率策略仍未达标，请适当提高目标 KB`,
-  };
+  const result = await encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, profile, w, h);
+  return { ...result, extUsed: targetExt };
 }
 
 function lossyQualityMin(profile) {
-  return profile === "preserve" ? 0.48 : 0.03;
+  return profile === "preserve" ? 0.35 : 0.01;
 }
 
 /**
@@ -476,8 +453,7 @@ async function binarySearchQualityFullSize(canvas, mime, targetBytes, qMin) {
 }
 
 /**
- * 始终使用原始像素尺寸输出；仅通过 JPEG/WebP 质量调节尝试达标。
- * PNG 在浏览器中无法调质量，若原尺寸导出仍大于目标则标为未达标（不缩小分辨率）。
+ * 严格保持原始像素尺寸；优先目标格式，不达标时可自动回退到更易达标的有损格式。
  */
 async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressive") {
   const bitmap = await fileToImageBitmap(file);
@@ -486,7 +462,25 @@ async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressiv
     if (first.met) {
       return first;
     }
-    return forceMeetTargetByDownscale(bitmap, targetExt, targetBytes, profile, first);
+
+    let best = first;
+    const fallbackExts = ["webp", "jpeg"].filter((ext) => ext !== targetExt);
+    for (const ext of fallbackExts) {
+      const attempt = await encodeAtDimensions(bitmap, ext, targetBytes, profile, bitmap.width, bitmap.height);
+      if (!best.blob || (attempt.blob && attempt.blob.size < best.blob.size)) best = attempt;
+      if (attempt.met) {
+        return {
+          ...attempt,
+          note: `${attempt.note}；严格达标已自动改为 ${ext}`,
+        };
+      }
+    }
+
+    return {
+      ...best,
+      met: false,
+      note: `${best.note}；保持原尺寸条件下仍未达标，请提高目标 KB`,
+    };
   } finally {
     bitmap.close();
   }
@@ -495,8 +489,8 @@ async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressiv
 async function processOne(file, state, targetBytes, profile = "aggressive") {
   const preferredExt = deriveTarget(file, state);
   const { ext: targetExt, fallbackNote } = resolveTargetExt(preferredExt);
-  const targetName = replaceExt(file.name, targetExt);
-  const { blob, met, note } = await encodeToTarget(file, targetExt, targetBytes, profile);
+  const { blob, met, note, extUsed } = await encodeToTarget(file, targetExt, targetBytes, profile);
+  const targetName = replaceExt(file.name, extUsed || targetExt);
   return {
     inputName: file.name,
     outputName: targetName,
