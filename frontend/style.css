@@ -271,6 +271,19 @@ button.btn--secondary:hover:not([disabled]) {
   border-color: #d8dee8;
 }
 
+/* 处理完成后高亮下载按钮，提示可立即下载结果包 */
+button.btn--ready {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #7c5cff 0%, #5a8dff 48%, #31c8ff 100%);
+  box-shadow: 0 8px 20px rgba(90, 141, 255, 0.38), 0 0 0 2px rgba(124, 92, 255, 0.14);
+}
+
+button.btn--ready:hover:not([disabled]) {
+  filter: saturate(1.08);
+  transform: translateY(-1px);
+}
+
 button.btn:active:not([disabled]) {
   transform: translateY(0);
 }

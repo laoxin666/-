@@ -62,6 +62,11 @@ function setProgress(value) {
   progressBar.style.width = `${v}%`;
 }
 
+function syncDownloadButtonStyle() {
+  const ready = outputFiles.length > 0;
+  downloadBtn.classList.toggle("btn--ready", ready);
+}
+
 function isAllowedFile(file) {
   const ext = extOf(file.name || "");
   return ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tif", "tiff"].includes(ext);
@@ -547,6 +552,7 @@ async function runTask(files, state, options = {}) {
 
   runBtn.disabled = true;
   downloadBtn.disabled = true;
+  downloadBtn.classList.remove("btn--ready");
   setProgress(0);
   statusText.textContent = "处理中...";
   latestSourceFiles = files.slice();
@@ -578,6 +584,7 @@ async function runTask(files, state, options = {}) {
   statusText.textContent = "处理完成";
   runBtn.disabled = false;
   downloadBtn.disabled = outputFiles.length === 0;
+  syncDownloadButtonStyle();
   return rows;
 }
 
@@ -646,6 +653,7 @@ async function downloadZip() {
   URL.revokeObjectURL(a.href);
   statusText.textContent = "ZIP 已下载";
   downloadBtn.disabled = false;
+  syncDownloadButtonStyle();
 }
 
 function refreshPreview() {
@@ -710,6 +718,7 @@ clearAllBtn.addEventListener("click", () => {
   refreshPreview();
   statusText.textContent = "已清空";
   downloadBtn.disabled = true;
+  syncDownloadButtonStyle();
 });
 retryFailedBtn.addEventListener("click", retryFailed);
 exportCsvBtn.addEventListener("click", exportCsv);
@@ -762,3 +771,4 @@ updateMode();
 setSelectedFiles([]);
 renderRows([]);
 refreshPreview();
+syncDownloadButtonStyle();
