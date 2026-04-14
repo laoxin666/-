@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>图片压缩与格式转化</title>
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./style.css?v=20260413-1" />
   </head>
   <body>
     <main class="app">
@@ -12,10 +15,35 @@
       <p class="hint">纯前端版本，所有处理都在浏览器本地完成。</p>
 
       <section class="panel">
+        <div class="grid">
+          <div>
+            <label>一键推荐参数</label>
+            <select id="presetSelect">
+              <option value="">手动设置</option>
+              <option value="social">社媒发布</option>
+              <option value="ecommerce">电商图</option>
+              <option value="archive">归档备份</option>
+            </select>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="clearAllBtn" type="button">一键清空</button>
+          </div>
+        </div>
+
         <div class="row">
           <label>上传图片</label>
           <input id="imagesInput" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff" />
         </div>
+        <div id="dropZone" class="drop-zone">
+          <strong>拖拽图片或文件夹到这里</strong>
+          <div class="drop-hint" id="fileMeta">未选择文件</div>
+        </div>
+        <div class="preview-tools">
+          <span class="summary">已选预览</span>
+        </div>
+        <div id="previewGrid" class="preview-grid"></div>
+        <div id="previewMore" class="summary"></div>
 
         <div class="grid">
           <div>
@@ -56,6 +84,7 @@
 
         <div class="actions">
           <button id="runBtn" type="button">开始处理</button>
+          <button id="enqueueBtn" type="button">加入队列</button>
           <button id="downloadBtn" type="button" disabled>下载 ZIP</button>
           <span id="statusText">等待任务</span>
         </div>
@@ -63,7 +92,31 @@
       </section>
 
       <section class="panel">
+        <div class="panel-head">
+          <h2>策略预览（快速估算）</h2>
+          <button id="refreshPreviewBtn" type="button">刷新预览</button>
+        </div>
+        <div class="summary" id="previewStatus">请选择图片并填写目标体积</div>
+        <div id="previewCards" class="preview-cards"></div>
+      </section>
+
+      <section class="panel">
         <h2>处理结果</h2>
+        <div class="actions">
+          <select id="resultFilter">
+            <option value="all">显示全部</option>
+            <option value="met">仅达标</option>
+            <option value="unmet">仅未达标</option>
+          </select>
+          <button id="retryFailedBtn" type="button">重试失败项</button>
+          <button id="exportCsvBtn" type="button">导出 CSV</button>
+        </div>
+        <div class="result-cards">
+          <div class="result-card"><div class="k">文件数</div><div class="v" id="sumCount">0</div></div>
+          <div class="result-card"><div class="k">原始体积</div><div class="v" id="sumBefore">0 KB</div></div>
+          <div class="result-card"><div class="k">输出体积</div><div class="v" id="sumAfter">0 KB</div></div>
+          <div class="result-card"><div class="k">节省比例</div><div class="v" id="sumRatio">0%</div></div>
+        </div>
         <div class="summary" id="summaryText">暂无结果</div>
         <table>
           <thead>
@@ -78,9 +131,24 @@
           <tbody id="resultBody"></tbody>
         </table>
       </section>
+
+      <section class="panel">
+        <h2>任务队列</h2>
+        <div class="panel-head">
+          <div class="summary" id="queueText">队列为空</div>
+          <button id="clearPendingBtn" type="button">清空等待</button>
+        </div>
+        <div id="queueList" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>最近任务</h2>
+        <div class="summary" id="historyText">暂无历史任务</div>
+        <div id="historyList" class="list"></div>
+      </section>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260413-1"></script>
   </body>
 </html>

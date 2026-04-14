@@ -12,16 +12,32 @@
 **推荐（对方不用装 Python）**
 
 1. **你**：双击 `scripts/打成分享压缩包.command`（首次会自动建 `.venv-pack` 并执行 PyInstaller，可能要几分钟）。  
-2. 桌面会出现 **`PixelForge-发给同事-免Python-arm64-xxxx.zip`** 或 **`…-x86_64-…`**（与**你当前 Mac 的芯片**一致）。  
-3. **对方**：解压 → 阅读 **`同事请看.txt`** → 双击 **`PixelForge Studio.app`**。无需 Python；同一 Wi‑Fi 下用浏览器打开窗口里显示的地址即可。
+2. 桌面会出现 **`《图片压缩与格式转化》-免Python-arm64-xxxx.zip`** 或 **`…-x86_64-…`**（与**你当前 Mac 的芯片**一致）。  
+3. **对方**：解压 → 阅读 **`使用说明.txt`** → 双击 **`PixelForge Studio.app`**。无需 Python；同一 Wi‑Fi 下用浏览器打开窗口里显示的地址即可。
 
 若团队里既有 Intel 又有 M 系列，需要在**两种架构的 Mac 上各打一次包**再分别发给对应同事。
 
 **备选（zip 更小，对方需已装 Python 3）**
 
-双击 **`给同事用-双击启动.command`**（首次会装少量依赖）。下载慢时可编辑该文件启用国内 pip 镜像。
+双击 **`双击启动.command`**（首次会装少量依赖）。下载慢时可编辑该文件启用国内 pip 镜像。
+
+如需开机自动可用：双击 **`启用开机自启.command`**；关闭自动启动可双击 **`关闭开机自启.command`**。
 
 （进阶：开发调试仍可用 `start_web_share.command`、universal2 `.app`、Fly.io 等，见下文。）
+
+### 纯前端分享（直接发链接）
+
+仓库已提供 `frontend/` 目录，包含纯前端版本（浏览器本地处理，不依赖 Python 后端）：
+
+1. 本地预览：
+   ```bash
+   cd image-lossless-tool/frontend
+   python3 -m http.server 8080
+   ```
+   打开 `http://127.0.0.1:8080`。
+2. 部署到 GitHub Pages：将 `frontend/` 内容发布为静态站点即可。
+
+说明：浏览器原生编码能力以 `jpeg/png/webp` 最稳定；选择 `tiff/bmp/gif` 时会自动回退为 `png` 并在结果中提示。
 
 ### 最优方案（已替你选定）
 

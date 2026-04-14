@@ -7,7 +7,7 @@ cd "$ROOT"
 
 ARCH=$(uname -m)
 STAMP=$(date +%Y%m%d)
-OUT_NAME="PixelForge-发给同事-免Python-${ARCH}-${STAMP}.zip"
+OUT_NAME="《图片压缩与格式转化》-免Python-${ARCH}-${STAMP}.zip"
 OUT_PATH="${HOME}/Desktop/${OUT_NAME}"
 
 # 国内 pip 慢可取消下一行注释
@@ -60,23 +60,37 @@ rsync -a \
   --exclude '.venv-share' \
   --exclude '.venv-universal' \
   --exclude '.venv-pack' \
+  --exclude '.wheelcheck' \
   --exclude 'build' \
   --exclude 'dist' \
   --exclude '__pycache__' \
   --exclude '*.pyc' \
   --exclude '.DS_Store' \
-  --exclude 'PixelForge-发给同事-*.zip' \
+  --exclude '《图片压缩与格式转化》-免Python-*.zip' \
   "$ROOT/" "$TDIR/PixelForge/"
 
 # 用构建好的 app 覆盖 rsync 可能带来的旧 dist 副本（rsync 已排除 dist）
 rm -rf "$TDIR/PixelForge/PixelForge Studio.app"
 cp -R "$APP_SRC" "$TDIR/PixelForge/"
 
-( cd "$TDIR" && zip -r -q "$OUT_PATH" PixelForge )
+python3 - <<PY
+from pathlib import Path
+import zipfile
+
+src_root = Path("$TDIR") / "PixelForge"
+out_path = Path("$OUT_PATH")
+with zipfile.ZipFile(out_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    for path in src_root.rglob("*"):
+        arcname = path.relative_to(Path("$TDIR"))
+        if path.is_dir():
+            zf.writestr(str(arcname).replace("\\\\", "/") + "/", b"")
+        else:
+            zf.write(path, str(arcname).replace("\\\\", "/"))
+PY
 
 echo ""
 echo "已生成：$OUT_PATH"
 echo "（内含独立应用，对方 Mac 需为 ${ARCH}，与当前打包机一致）"
 echo ""
-echo "发给同事：解压 → 先读「同事请看.txt」→ 双击 PixelForge Studio.app"
+echo "使用步骤：解压 → 先读「使用说明.txt」→ 双击 PixelForge Studio.app"
 osascript -e "display notification \"已保存到桌面（免 Python）\" with title \"PixelForge 分享包\"" 2>/dev/null || true

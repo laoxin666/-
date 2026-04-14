@@ -19,7 +19,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from PIL import Image
 from werkzeug.utils import secure_filename
 
@@ -111,10 +111,6 @@ def get_ui_config() -> dict[str, object]:
         "cloud_mode": is_cloud_mode(),
         "access_token_required": access_token_configured(),
     }
-
-
-def render_index(error: str | None = None):
-    return render_template("index.html", error=error, ui=get_ui_config())
 
 
 def api_error(message: str, status: int = 400):
@@ -260,7 +256,12 @@ def add_download_to_cache(data: bytes) -> str:
 
 @app.get("/")
 def index():
-    return render_index()
+    return send_from_directory(str(_APP_ROOT / "templates"), "index.html")
+
+
+@app.get("/config")
+def ui_config():
+    return jsonify({"ok": True, "ui": get_ui_config()})
 
 
 @app.get("/health")

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ ui.app_name }} - Image Processing</title>
+    <title>PixelForge Studio - Image Processing</title>
     <style>
       :root {
         --bg: #f5f5f7;
@@ -785,9 +785,11 @@
               <path d="M12 2c-4.97 0-9 4.03-9 9v8a1 1 0 0 0 1.61.79l2.39-1.79 2.39 1.79a1 1 0 0 0 1.22 0L13 18l2.39 1.79a1 1 0 0 0 1.22 0L19 18l2.39 1.79A1 1 0 0 0 23 19v-8c0-4.97-4.03-9-9-9Zm-3 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>
             </svg>
           </div>
-          <h1>{{ ui.app_name }}</h1>
+          <h1 id="appNameText">PixelForge Studio</h1>
         </div>
-        <p class="subtitle">{{ ui.tagline }}</p>
+        <p class="subtitle" id="appTagline">
+          专业级图像优化工作台，聚焦无损压缩与高质量格式转换，适合素材归档、设计交付和内容发布前处理。
+        </p>
         <div class="badge-row">
           <span class="badge">Lossless Pipeline</span>
           <span class="badge">Batch Ready</span>
@@ -806,18 +808,13 @@
           <div class="meta">输出：`processed_images.zip`</div>
         </div>
 
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
+        <div class="error" id="errorBar" style="display:none;"></div>
 
-        {% if ui.cloud_mode %}
-        <div class="error" style="background:#f0f7ff;border-color:#b8d4f5;color:#1d4e89;">
+        <div class="error" id="cloudBanner" style="display:none;background:#f0f7ff;border-color:#b8d4f5;color:#1d4e89;">
           云端部署：压缩在<strong>服务器</strong>上完成，不占你的本机算力与磁盘；请使用<strong>下载 ZIP</strong>将结果保存到自己的电脑。
         </div>
-        {% endif %}
 
-        {% if ui.access_token_required %}
-        <div class="error" id="tokenBar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <div class="error" id="tokenBar" style="display:none;flex-wrap:wrap;gap:10px;align-items:center;">
           <span style="font-size:13px;">访问令牌（向部署者索取）：</span>
           <input
             type="password"
@@ -828,7 +825,6 @@
           />
           <button type="button" class="path-btn" id="saveTokenBtn">保存令牌</button>
         </div>
-        {% endif %}
 
         <form action="/process" method="post" enctype="multipart/form-data" id="processForm">
           <div class="grid">
@@ -920,15 +916,12 @@
             <div class="field">
               <label for="outputMode">输出方式</label>
               <select id="outputMode" name="output_mode">
-                <option value="download">下载 ZIP{% if ui.cloud_mode %}（云端推荐）{% endif %}</option>
-                {% if not ui.cloud_mode %}
+                <option value="download">下载 ZIP</option>
                 <option value="folder">输出到指定文件夹</option>
                 <option value="original">输出到本机默认目录</option>
-                {% endif %}
               </select>
             </div>
 
-            {% if not ui.cloud_mode %}
             <div class="field" id="outputDirField">
               <label for="outputDir">输出文件夹路径（可选）</label>
               <div class="path-row">
@@ -941,23 +934,19 @@
                 <button type="button" id="pickDirBtn" class="path-btn">选择文件夹</button>
               </div>
             </div>
-            {% endif %}
 
             <div class="switches">
-              {% if ui.cloud_mode %}
-              <p style="margin:0;font-size:12px;color:var(--text-dim);line-height:1.5;">
+              <p id="cloudModeHint" style="display:none;margin:0;font-size:12px;color:var(--text-dim);line-height:1.5;">
                 公网实例仅支持浏览器上传与 ZIP 下载；文件在服务器内存/临时目录处理，处理完成后请尽快下载。
               </p>
-              {% else %}
-              <label class="switch">
+              <label class="switch" id="keepStructureLabel">
                 <input type="checkbox" id="keepStructure" name="keep_structure" checked />
                 文件夹模式保留原目录结构
               </label>
-              <label class="switch">
+              <label class="switch" id="autoOpenLabel">
                 <input type="checkbox" id="autoOpenOutput" />
                 处理完成后自动打开输出目录
               </label>
-              {% endif %}
             </div>
           </div>
 
@@ -1097,6 +1086,14 @@
       const sumAfter = document.getElementById("sumAfter");
       const sumSaved = document.getElementById("sumSaved");
       const sumRatio = document.getElementById("sumRatio");
+      const appNameText = document.getElementById("appNameText");
+      const appTagline = document.getElementById("appTagline");
+      const cloudBanner = document.getElementById("cloudBanner");
+      const cloudModeHint = document.getElementById("cloudModeHint");
+      const keepStructureLabel = document.getElementById("keepStructureLabel");
+      const autoOpenLabel = document.getElementById("autoOpenLabel");
+      const tokenBar = document.getElementById("tokenBar");
+      const errorBar = document.getElementById("errorBar");
       let progressTimer = null;
       let latestResults = [];
       let lastFailedSources = [];
@@ -1108,8 +1105,46 @@
       const taskQueue = [];
       let queueRunning = false;
 
-      const CLOUD_MODE = {{ ui.cloud_mode | tojson }};
-      const ACCESS_TOKEN_REQUIRED = {{ ui.access_token_required | tojson }};
+      let CLOUD_MODE = false;
+      let ACCESS_TOKEN_REQUIRED = false;
+
+      const DEFAULT_UI_CONFIG = {
+        app_name: "PixelForge Studio",
+        tagline:
+          "专业级图像优化工作台，聚焦无损压缩与高质量格式转换，适合素材归档、设计交付和内容发布前处理。",
+        cloud_mode: false,
+        access_token_required: false,
+      };
+
+      function applyRuntimeConfig(ui = {}) {
+        const merged = { ...DEFAULT_UI_CONFIG, ...(ui || {}) };
+        CLOUD_MODE = !!merged.cloud_mode;
+        ACCESS_TOKEN_REQUIRED = !!merged.access_token_required;
+        if (appNameText) appNameText.textContent = merged.app_name || DEFAULT_UI_CONFIG.app_name;
+        if (appTagline) appTagline.textContent = merged.tagline || DEFAULT_UI_CONFIG.tagline;
+        document.title = `${merged.app_name || DEFAULT_UI_CONFIG.app_name} - Image Processing`;
+        if (cloudBanner) cloudBanner.style.display = CLOUD_MODE ? "block" : "none";
+        if (cloudModeHint) cloudModeHint.style.display = CLOUD_MODE ? "block" : "none";
+        if (keepStructureLabel) keepStructureLabel.style.display = CLOUD_MODE ? "none" : "flex";
+        if (autoOpenLabel) autoOpenLabel.style.display = CLOUD_MODE ? "none" : "flex";
+        if (tokenBar) tokenBar.style.display = ACCESS_TOKEN_REQUIRED ? "flex" : "none";
+        if (errorBar) errorBar.style.display = "none";
+      }
+
+      async function loadRuntimeConfig() {
+        try {
+          const resp = await fetch("/config", { cache: "no-store" });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          if (data && data.ok && data.ui) {
+            applyRuntimeConfig(data.ui);
+          }
+        } catch (_err) {
+          // Keep default UI settings when backend config is unavailable.
+        }
+      }
+
+      applyRuntimeConfig(DEFAULT_UI_CONFIG);
 
       function getAccessToken() {
         return localStorage.getItem("imgTool.accessToken") || "";
@@ -1805,7 +1840,7 @@
 
       const accessTokenInput = document.getElementById("accessTokenInput");
       const saveTokenBtn = document.getElementById("saveTokenBtn");
-      if (ACCESS_TOKEN_REQUIRED && accessTokenInput && saveTokenBtn) {
+      if (accessTokenInput && saveTokenBtn) {
         accessTokenInput.value = getAccessToken();
         saveTokenBtn.addEventListener("click", () => {
           localStorage.setItem("imgTool.accessToken", accessTokenInput.value.trim());
@@ -1893,6 +1928,12 @@
       renderHistory();
       renderQueue();
       saveCurrentState();
+      loadRuntimeConfig().then(() => {
+        syncOutputModeState();
+        if (ACCESS_TOKEN_REQUIRED && accessTokenInput && !getAccessToken()) {
+          statusText.textContent = "请先保存访问令牌后再开始处理";
+        }
+      });
     </script>
   </body>
 </html>
