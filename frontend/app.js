@@ -223,8 +223,8 @@ function drawToCanvas(bitmap, width, height) {
   return canvas;
 }
 
-function bitmapToImageData(bitmap) {
-  const canvas = drawToCanvas(bitmap, bitmap.width, bitmap.height);
+function bitmapToImageData(bitmap, width = bitmap.width, height = bitmap.height) {
+  const canvas = drawToCanvas(bitmap, width, height);
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
@@ -269,7 +269,7 @@ function webpWasmBufferToBlob(buf) {
 }
 
 async function encodeJpegWithMozjpeg(bitmap, targetBytes, profile, w, h) {
-  const imageData = bitmapToImageData(bitmap);
+  const imageData = bitmapToImageData(bitmap, w, h);
   const mod = await import(JSQUASH_JPEG_ENCODE);
   const encode = mod.default;
   const qMin = wasmQualityMin100(profile);
@@ -314,7 +314,7 @@ async function encodeJpegWithMozjpeg(bitmap, targetBytes, profile, w, h) {
 }
 
 async function encodeWebpWithWasm(bitmap, targetBytes, profile, w, h) {
-  const imageData = bitmapToImageData(bitmap);
+  const imageData = bitmapToImageData(bitmap, w, h);
   const mod = await import(JSQUASH_WEBP_ENCODE);
   const encode = mod.default;
   const qMin = wasmQualityMin100(profile);
@@ -395,6 +395,47 @@ async function encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, pro
   return binarySearchQualityFullSize(canvas, mime, targetBytes, qMin);
 }
 
+async function encodeAtDimensions(bitmap, targetExt, targetBytes, profile, w, h) {
+  const mime = mimeFromExt(targetExt);
+  if (!mime) throw new Error(`不支持目标格式: ${targetExt}`);
+  if (mime === "image/png") {
+    const canvas = drawToCanvas(bitmap, w, h);
+    const blob = await canvasToBlob(canvas, mime, undefined);
+    const met = blob.size <= targetBytes;
+    return {
+      blob,
+      met,
+      note: met ? `保持 ${w}×${h}px，PNG 导出` : `PNG ${w}×${h}px 仍超出目标体积`,
+    };
+  }
+  return encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, profile, w, h);
+}
+
+async function forceMeetTargetByDownscale(bitmap, targetExt, targetBytes, profile, baseResult) {
+  const minSide = 64;
+  let scale = 0.94;
+  let best = baseResult;
+  while (Math.min(bitmap.width * scale, bitmap.height * scale) >= minSide) {
+    const w = Math.max(1, Math.floor(bitmap.width * scale));
+    const h = Math.max(1, Math.floor(bitmap.height * scale));
+    const attempt = await encodeAtDimensions(bitmap, targetExt, targetBytes, profile, w, h);
+    if (!best.blob || attempt.blob.size < best.blob.size) best = attempt;
+    if (attempt.met) {
+      return {
+        blob: attempt.blob,
+        met: true,
+        note: `${attempt.note}；为达标已自动缩放分辨率`,
+      };
+    }
+    scale *= 0.9;
+  }
+  return {
+    blob: best.blob,
+    met: false,
+    note: `${best.note}；已降至最小分辨率策略仍未达标，请适当提高目标 KB`,
+  };
+}
+
 function lossyQualityMin(profile) {
   return profile === "preserve" ? 0.48 : 0.03;
 }
@@ -439,27 +480,13 @@ async function binarySearchQualityFullSize(canvas, mime, targetBytes, qMin) {
  * PNG 在浏览器中无法调质量，若原尺寸导出仍大于目标则标为未达标（不缩小分辨率）。
  */
 async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressive") {
-  const mime = mimeFromExt(targetExt);
-  if (!mime) throw new Error(`不支持目标格式: ${targetExt}`);
   const bitmap = await fileToImageBitmap(file);
   try {
-    const w = bitmap.width;
-    const h = bitmap.height;
-
-    if (mime === "image/png") {
-      const canvas = drawToCanvas(bitmap, w, h);
-      const blob = await canvasToBlob(canvas, mime, undefined);
-      const met = blob.size <= targetBytes;
-      return {
-        blob,
-        met,
-        note: met
-          ? `保持 ${w}×${h}px，PNG 导出`
-          : `保持 ${w}×${h}px 时 PNG 无法压至目标；请提高目标 KB 或改用 JPEG/WebP`,
-      };
+    const first = await encodeAtDimensions(bitmap, targetExt, targetBytes, profile, bitmap.width, bitmap.height);
+    if (first.met) {
+      return first;
     }
-
-    return await encodeLossyWasmOrCanvas(bitmap, mime, targetExt, targetBytes, profile, w, h);
+    return forceMeetTargetByDownscale(bitmap, targetExt, targetBytes, profile, first);
   } finally {
     bitmap.close();
   }
