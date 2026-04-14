@@ -219,22 +219,6 @@ function canvasToBlob(canvas, mime, quality) {
   });
 }
 
-function candidateSet(profile, mime) {
-  const pngQs = [undefined];
-  const lossyQsPreserve = [0.96, 0.9, 0.84, 0.78, 0.72, 0.66, 0.58, 0.5, 0.42, 0.34];
-  const lossyQsAggressive = [0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44, 0.38, 0.32, 0.26, 0.2, 0.14];
-  if (profile === "preserve") {
-    return {
-      scales: [1, 0.98, 0.95, 0.92, 0.88, 0.84, 0.8, 0.75, 0.7, 0.65],
-      qualities: mime === "image/png" ? pngQs : lossyQsPreserve,
-    };
-  }
-  return {
-    scales: [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3],
-    qualities: mime === "image/png" ? pngQs : lossyQsAggressive,
-  };
-}
-
 function drawToCanvas(bitmap, width, height) {
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, width);
@@ -244,14 +228,20 @@ function drawToCanvas(bitmap, width, height) {
   return canvas;
 }
 
-/** 在固定画布上对 JPEG/WebP 二分质量，尽量在不超过 targetBytes 的前提下取较高质量。 */
-async function binarySearchQuality(canvas, mime, targetBytes) {
-  const qMin = 0.03;
+function lossyQualityMin(profile) {
+  return profile === "preserve" ? 0.48 : 0.03;
+}
+
+/**
+ * 在「固定画布尺寸」上对 JPEG/WebP 二分质量：在不超过 targetBytes 的前提下尽量取较高质量。
+ * 不缩小像素尺寸。
+ */
+async function binarySearchQualityFullSize(canvas, mime, targetBytes, qMin) {
   const qMax = 1;
   let bestUnder = null;
   let lo = qMin;
   let hi = qMax;
-  for (let i = 0; i < 22; i += 1) {
+  for (let i = 0; i < 24; i += 1) {
     const mid = (lo + hi) / 2;
     const blob = await canvasToBlob(canvas, mime, mid);
     if (blob.size <= targetBytes) {
@@ -261,103 +251,49 @@ async function binarySearchQuality(canvas, mime, targetBytes) {
       hi = mid;
     }
   }
+  const w = canvas.width;
+  const h = canvas.height;
   if (bestUnder) {
-    return { blob: bestUnder, met: true, note: "强制: 二分质量调优" };
+    return { blob: bestUnder, met: true, note: `保持 ${w}×${h}px，质量已调优` };
   }
   const lowest = await canvasToBlob(canvas, mime, qMin);
-  return { blob: lowest, met: lowest.size <= targetBytes, note: "强制: 最低质量" };
-}
-
-/**
- * 网格未达标时：逐步缩小尺寸；有损格式配合二分质量。尽量强制压到 targetBytes 以下。
- */
-async function forceEncodeUnderTarget(bitmap, mime, targetBytes) {
-  const minSide = 24;
-  let width = bitmap.width;
-  let height = bitmap.height;
-  let bestBlob = null;
-  let bestLabel = "强制压缩";
-
-  const isPng = mime === "image/png";
-
-  for (let step = 0; step < 80; step += 1) {
-    const canvas = drawToCanvas(bitmap, width, height);
-
-    if (isPng) {
-      const blob = await canvasToBlob(canvas, mime, undefined);
-      if (!bestBlob || blob.size < bestBlob.size) {
-        bestBlob = blob;
-        bestLabel = `强制: PNG 缩放至 ${canvas.width}×${canvas.height}`;
-      }
-      if (blob.size <= targetBytes) {
-        return { blob, met: true, note: bestLabel };
-      }
-    } else {
-      const { blob, met, note } = await binarySearchQuality(canvas, mime, targetBytes);
-      if (!bestBlob || blob.size < bestBlob.size) {
-        bestBlob = blob;
-        bestLabel = `${note} (${canvas.width}×${canvas.height})`;
-      }
-      if (met) {
-        return { blob, met: true, note: bestLabel };
-      }
-    }
-
-    if (Math.min(width, height) <= minSide) {
-      break;
-    }
-    width = Math.max(minSide, Math.floor(width * 0.88));
-    height = Math.max(minSide, Math.floor(height * 0.88));
-  }
-
+  const met = lowest.size <= targetBytes;
   return {
-    blob: bestBlob,
-    met: !!(bestBlob && bestBlob.size <= targetBytes),
-    note: bestBlob ? `${bestLabel}（已达浏览器可压极限）` : "编码失败",
+    blob: lowest,
+    met,
+    note: met
+      ? `保持 ${w}×${h}px，已用较低质量`
+      : `保持 ${w}×${h}px 时即使最低可接受质量仍大于目标；请提高目标 KB 或改用 WebP/JPEG`,
   };
 }
 
+/**
+ * 始终使用原始像素尺寸输出；仅通过 JPEG/WebP 质量调节尝试达标。
+ * PNG 在浏览器中无法调质量，若原尺寸导出仍大于目标则标为未达标（不缩小分辨率）。
+ */
 async function encodeToTarget(file, targetExt, targetBytes, profile = "aggressive") {
   const mime = mimeFromExt(targetExt);
   if (!mime) throw new Error(`不支持目标格式: ${targetExt}`);
   const bitmap = await fileToImageBitmap(file);
   try {
-    let bestBlob = null;
-    let bestLabel = "保持原图";
-    const { scales, qualities } = candidateSet(profile, mime);
+    const canvas = drawToCanvas(bitmap, bitmap.width, bitmap.height);
+    const w = bitmap.width;
+    const h = bitmap.height;
 
-    for (const scale of scales) {
-      const width = Math.max(1, Math.floor(bitmap.width * scale));
-      const height = Math.max(1, Math.floor(bitmap.height * scale));
-      const canvas = drawToCanvas(bitmap, width, height);
-
-      for (const q of qualities) {
-        const blob = await canvasToBlob(canvas, mime, q);
-        if (!bestBlob || blob.size < bestBlob.size) {
-          bestBlob = blob;
-          bestLabel = scale === 1 ? "质量压缩" : `质量压缩+缩放(${Math.round(scale * 100)}%)`;
-        }
-        if (blob.size <= targetBytes) {
-          return { blob, met: true, note: bestLabel };
-        }
-      }
+    if (mime === "image/png") {
+      const blob = await canvasToBlob(canvas, mime, undefined);
+      const met = blob.size <= targetBytes;
+      return {
+        blob,
+        met,
+        note: met
+          ? `保持 ${w}×${h}px，PNG 导出`
+          : `保持 ${w}×${h}px 时 PNG 无法压至目标；请提高目标 KB 或改用 JPEG/WebP`,
+      };
     }
 
-    if (bestBlob && bestBlob.size <= targetBytes) {
-      return { blob: bestBlob, met: true, note: bestLabel };
-    }
-
-    const forced = await forceEncodeUnderTarget(bitmap, mime, targetBytes);
-    if (forced.met && forced.blob) {
-      return forced;
-    }
-    if (forced.blob && bestBlob && forced.blob.size < bestBlob.size) {
-      return forced;
-    }
-    if (forced.blob && !bestBlob) {
-      return forced;
-    }
-    return { blob: bestBlob, met: !!(bestBlob && bestBlob.size <= targetBytes), note: bestLabel };
+    const qMin = lossyQualityMin(profile);
+    return await binarySearchQualityFullSize(canvas, mime, targetBytes, qMin);
   } finally {
     bitmap.close();
   }
@@ -666,10 +602,7 @@ function refreshPreview() {
     previewStatus.textContent = "请选择图片并填写目标体积";
     return;
   }
-  const candidates = [
-    estimateStrategy(files, state, 0.58, "严格达标优先"),
-    estimateStrategy(files, state, 0.72, "内容保真优先"),
-  ].filter(Boolean);
+  const candidates = [estimateStrategy(files, state, 0.65, "体积粗算参考（样本）")].filter(Boolean);
   if (!candidates.length) {
     previewStatus.textContent = "暂无预览数据";
     return;
@@ -685,7 +618,7 @@ function refreshPreview() {
     `;
     previewCards.appendChild(card);
   }
-  previewStatus.textContent = `基于 ${Math.min(files.length, 3)} 张样本的快速估算`;
+  previewStatus.textContent = `基于 ${Math.min(files.length, 3)} 张样本；实际输出保持原始宽高像素，JPEG/WebP 仅调质量，PNG 不缩小尺寸`;
 }
 
 async function readEntryRecursive(entry) {
