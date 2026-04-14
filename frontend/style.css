@@ -303,7 +303,7 @@ button.btn--block {
   position: relative;
   border: 2px dashed #b7c8dd;
   border-radius: 20px;
-  padding: 24px 20px;
+  padding: 24px 20px 74px;
   min-height: 132px;
   margin-bottom: 12px;
   background: linear-gradient(145deg, #fcfdff 0%, #f2f7ff 58%, #eef5ff 100%);
@@ -319,6 +319,14 @@ button.btn--block {
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+.drop-clear-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  min-width: 112px;
+  z-index: 2;
 }
 
 .drop-zone strong {
@@ -567,11 +575,16 @@ tbody tr:hover {
 
   .drop-zone {
     min-height: 116px;
-    padding: 20px 16px;
+    padding: 20px 16px 70px;
   }
 
   .drop-zone strong {
     font-size: 20px;
+  }
+
+  .drop-clear-btn {
+    right: 10px;
+    bottom: 10px;
   }
 
   h1 {
