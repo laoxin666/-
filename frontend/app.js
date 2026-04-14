@@ -13,6 +13,7 @@ const summaryText = document.getElementById("summaryText");
 const compressToWrap = document.getElementById("compressToWrap");
 const targetWrap = document.getElementById("targetWrap");
 const dropZone = document.getElementById("dropZone");
+const pickFilesBtn = document.getElementById("pickFilesBtn");
 const fileMeta = document.getElementById("fileMeta");
 const presetSelect = document.getElementById("presetSelect");
 const clearAllBtn = document.getElementById("clearAllBtn");
@@ -813,6 +814,7 @@ retryFailedBtn.addEventListener("click", retryFailed);
 exportCsvBtn.addEventListener("click", exportCsv);
 clearPendingBtn.addEventListener("click", clearPendingTasks);
 imagesInput.addEventListener("change", () => setSelectedFiles(Array.from(imagesInput.files || [])));
+pickFilesBtn.addEventListener("click", () => imagesInput.click());
 
 historyList.addEventListener("click", (event) => {
   const target = event.target;

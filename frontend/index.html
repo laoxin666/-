@@ -7,7 +7,16 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>图片压缩与格式转化</title>
-    <link rel="stylesheet" href="./style.css?v=20260414-7" />
+    <link id="appStyle" rel="stylesheet" href="./style.css" />
+    <script>
+      (function applyAssetVersion() {
+        const params = new URLSearchParams(window.location.search);
+        const v = params.get("_v") || String(Date.now());
+        const style = document.getElementById("appStyle");
+        if (style) style.href = "./style.css?_v=" + encodeURIComponent(v);
+        window.__assetVersion = v;
+      })();
+    </script>
   </head>
   <body>
     <main class="app">
@@ -39,13 +48,20 @@
 
         <div class="workbench-grid">
           <div class="workbench-col">
-            <div class="row">
-              <label>上传图片</label>
-              <input id="imagesInput" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff" />
-            </div>
             <div id="dropZone" class="drop-zone">
-              <strong>拖拽图片或文件夹到这里</strong>
-              <div class="drop-hint" id="fileMeta">未选择文件</div>
+              <div class="drop-inner">
+                <strong>拖拽图片或文件夹到这里</strong>
+                <div class="drop-hint">或</div>
+                <button id="pickFilesBtn" class="btn btn--primary drop-action" type="button">选择文件</button>
+                <input
+                  id="imagesInput"
+                  class="input-hidden"
+                  type="file"
+                  multiple
+                  accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff"
+                />
+                <div class="drop-hint" id="fileMeta">未选择文件</div>
+              </div>
             </div>
             <div class="preview-tools">
               <span class="summary">已选预览</span>
@@ -161,6 +177,9 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script type="module" src="./app.js?v=20260414-7"></script>
+    <script type="module">
+      const v = window.__assetVersion || String(Date.now());
+      import("./app.js?_v=" + encodeURIComponent(v));
+    </script>
   </body>
 </html>
