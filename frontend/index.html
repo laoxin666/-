@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>图片压缩与格式转化</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <h1>图片压缩与格式转化</h1>
+      <p class="hint">纯前端版本，所有处理都在浏览器本地完成。</p>
+
+      <section class="panel">
+        <div class="row">
+          <label>上传图片</label>
+          <input id="imagesInput" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff" />
+        </div>
+
+        <div class="grid">
+          <div>
+            <label>处理模式</label>
+            <select id="modeSelect">
+              <option value="compress">无损压缩（尽量）</option>
+              <option value="convert">格式转换</option>
+            </select>
+          </div>
+          <div id="compressToWrap">
+            <label>压缩输出格式</label>
+            <select id="compressToSelect">
+              <option value="same">保持原格式</option>
+              <option value="jpeg">jpeg</option>
+              <option value="webp">webp</option>
+              <option value="png">png</option>
+              <option value="tiff">tiff</option>
+              <option value="bmp">bmp</option>
+              <option value="gif">gif</option>
+            </select>
+          </div>
+          <div id="targetWrap" class="hidden">
+            <label>目标格式</label>
+            <select id="targetSelect">
+              <option value="jpeg">jpeg</option>
+              <option value="webp">webp</option>
+              <option value="png">png</option>
+              <option value="tiff">tiff</option>
+              <option value="bmp">bmp</option>
+              <option value="gif">gif</option>
+            </select>
+          </div>
+          <div>
+            <label>目标体积(KB)</label>
+            <input id="targetSizeInput" type="number" min="1" step="1" placeholder="例如 300" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="runBtn" type="button">开始处理</button>
+          <button id="downloadBtn" type="button" disabled>下载 ZIP</button>
+          <span id="statusText">等待任务</span>
+        </div>
+        <div class="progress"><div id="progressBar"></div></div>
+      </section>
+
+      <section class="panel">
+        <h2>处理结果</h2>
+        <div class="summary" id="summaryText">暂无结果</div>
+        <table>
+          <thead>
+            <tr>
+              <th>文件</th>
+              <th>原始</th>
+              <th>输出</th>
+              <th>达标</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
